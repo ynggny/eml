@@ -3,11 +3,16 @@ import {
   getStats,
   getRecords,
   deleteRecord,
+  getStoredAuth,
+  setStoredAuth,
+  clearStoredAuth,
+  ApiError,
   type StatsResponse,
   type EmlRecord,
 } from '../utils/api';
 
 export function AdminDashboard() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [records, setRecords] = useState<EmlRecord[]>([]);
   const [total, setTotal] = useState(0);
@@ -33,18 +38,42 @@ export function AdminDashboard() {
       setStats(statsData);
       setRecords(recordsData.records);
       setTotal(recordsData.total);
+      setIsAuthenticated(true);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'データの取得に失敗しました'
-      );
+      if (err instanceof ApiError && err.status === 401) {
+        setIsAuthenticated(false);
+        clearStoredAuth();
+      } else {
+        setError(
+          err instanceof Error ? err.message : 'データの取得に失敗しました'
+        );
+      }
     } finally {
       setIsLoading(false);
     }
   }, [page, search]);
 
   useEffect(() => {
-    fetchData();
+    // 保存された認証情報があれば認証済みとしてデータ取得を試行
+    if (getStoredAuth()) {
+      fetchData();
+    } else {
+      setIsAuthenticated(false);
+      setIsLoading(false);
+    }
   }, [fetchData]);
+
+  const handleLogin = async (username: string, password: string) => {
+    setStoredAuth(username, password);
+    await fetchData();
+  };
+
+  const handleLogout = () => {
+    clearStoredAuth();
+    setIsAuthenticated(false);
+    setStats(null);
+    setRecords([]);
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,7 +91,12 @@ export function AdminDashboard() {
       setSelectedRecord(null);
       fetchData();
     } catch (err) {
-      alert(err instanceof Error ? err.message : '削除に失敗しました');
+      if (err instanceof ApiError && err.status === 401) {
+        setIsAuthenticated(false);
+        clearStoredAuth();
+      } else {
+        alert(err instanceof Error ? err.message : '削除に失敗しました');
+      }
     }
   };
 
@@ -78,9 +112,31 @@ export function AdminDashboard() {
 
   const totalPages = Math.ceil(total / limit);
 
+  // 認証状態の確認中
+  if (isAuthenticated === null && isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+      </div>
+    );
+  }
+
+  // 未認証 - ログインフォームを表示
+  if (!isAuthenticated) {
+    return <LoginForm onLogin={handleLogin} />;
+  }
+
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-bold">管理ダッシュボード</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold">管理ダッシュボード</h2>
+        <button
+          onClick={handleLogout}
+          className="px-3 py-1 text-sm text-gray-400 hover:text-white transition-colors"
+        >
+          ログアウト
+        </button>
+      </div>
 
       {error && (
         <div className="p-4 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm">
@@ -231,6 +287,81 @@ export function AdminDashboard() {
           formatDate={formatDate}
         />
       )}
+    </div>
+  );
+}
+
+function LoginForm({ onLogin }: { onLogin: (username: string, password: string) => Promise<void> }) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await onLogin(username, password);
+    } catch {
+      setError('認証に失敗しました。ユーザー名とパスワードを確認してください。');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="max-w-md mx-auto">
+      <div className="bg-gray-800 rounded-lg p-6">
+        <h2 className="text-xl font-bold mb-6 text-center">管理者ログイン</h2>
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="username" className="block text-sm text-gray-400 mb-1">
+              ユーザー名
+            </label>
+            <input
+              id="username"
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              autoComplete="username"
+              className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="password" className="block text-sm text-gray-400 mb-1">
+              パスワード
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+              className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full py-2 bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoading ? 'ログイン中...' : 'ログイン'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

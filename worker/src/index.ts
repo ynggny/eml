@@ -6,10 +6,13 @@ import { verifyDomain, type VerifyRequest } from './verify';
 import { storeEml, type StoreRequest } from './storage';
 import { getDNSRecord } from './dns';
 import { listRecords, getRecord, getStats, deleteRecord } from './admin';
+import { verifyAuth, unauthorizedResponse } from './auth';
 
 interface Env {
   DB: D1Database;
   BUCKET: R2Bucket;
+  ADMIN_USERNAME: string;
+  ADMIN_PASSWORD_HASH: string;
 }
 
 /**
@@ -19,7 +22,7 @@ function corsHeaders(): HeadersInit {
   return {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   };
 }
 
@@ -90,40 +93,48 @@ export default {
         return jsonResponse({ status: 'ok', timestamp: new Date().toISOString() });
       }
 
-      // GET /api/admin/stats - 統計情報
-      if (path === '/api/admin/stats' && request.method === 'GET') {
-        const stats = await getStats(env);
-        return jsonResponse(stats);
-      }
-
-      // GET /api/admin/records - レコード一覧
-      if (path === '/api/admin/records' && request.method === 'GET') {
-        const page = parseInt(url.searchParams.get('page') ?? '1', 10);
-        const limit = parseInt(url.searchParams.get('limit') ?? '20', 10);
-        const search = url.searchParams.get('search') ?? undefined;
-        const result = await listRecords(env, { page, limit, search });
-        return jsonResponse(result);
-      }
-
-      // GET/DELETE /api/admin/records/:id - 個別レコード操作
-      const recordMatch = path.match(/^\/api\/admin\/records\/([^/]+)$/);
-      if (recordMatch) {
-        const [, id] = recordMatch;
-
-        if (request.method === 'GET') {
-          const record = await getRecord(env, id);
-          if (!record) {
-            return errorResponse('Record not found', 404);
-          }
-          return jsonResponse(record);
+      // 管理用API - 認証必須
+      if (path.startsWith('/api/admin/')) {
+        const isAuthenticated = await verifyAuth(request, env);
+        if (!isAuthenticated) {
+          return unauthorizedResponse();
         }
 
-        if (request.method === 'DELETE') {
-          const deleted = await deleteRecord(env, id);
-          if (!deleted) {
-            return errorResponse('Record not found', 404);
+        // GET /api/admin/stats - 統計情報
+        if (path === '/api/admin/stats' && request.method === 'GET') {
+          const stats = await getStats(env);
+          return jsonResponse(stats);
+        }
+
+        // GET /api/admin/records - レコード一覧
+        if (path === '/api/admin/records' && request.method === 'GET') {
+          const page = parseInt(url.searchParams.get('page') ?? '1', 10);
+          const limit = parseInt(url.searchParams.get('limit') ?? '20', 10);
+          const search = url.searchParams.get('search') ?? undefined;
+          const result = await listRecords(env, { page, limit, search });
+          return jsonResponse(result);
+        }
+
+        // GET/DELETE /api/admin/records/:id - 個別レコード操作
+        const recordMatch = path.match(/^\/api\/admin\/records\/([^/]+)$/);
+        if (recordMatch) {
+          const [, id] = recordMatch;
+
+          if (request.method === 'GET') {
+            const record = await getRecord(env, id);
+            if (!record) {
+              return errorResponse('Record not found', 404);
+            }
+            return jsonResponse(record);
           }
-          return jsonResponse({ success: true });
+
+          if (request.method === 'DELETE') {
+            const deleted = await deleteRecord(env, id);
+            if (!deleted) {
+              return errorResponse('Record not found', 404);
+            }
+            return jsonResponse({ success: true });
+          }
         }
       }
 
