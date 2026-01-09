@@ -1,0 +1,14 @@
+name = "eml-viewer-api"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# D1データベース（ローカル開発時は自動作成）
+[[d1_databases]]
+binding = "DB"
+database_name = "eml-viewer-db"
+database_id = "local"  # 本番環境では実際のIDに置き換える
+
+# R2バケット（ローカル開発時は自動作成）
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "eml-storage"

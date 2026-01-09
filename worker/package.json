@@ -1,0 +1,16 @@
+{
+  "name": "eml-viewer-api",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:create": "wrangler d1 create eml-viewer-db",
+    "db:migrate": "wrangler d1 execute eml-viewer-db --local --file=./migrations/001_init.sql"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240208.0",
+    "typescript": "^5.3.3",
+    "wrangler": "^3.28.0"
+  }
+}
