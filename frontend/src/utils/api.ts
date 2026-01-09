@@ -34,6 +34,20 @@ export interface DNSRecordResponse {
   records: string[];
 }
 
+export interface StoreRequest {
+  emlBase64: string;
+  metadata: {
+    from_domain?: string;
+    subject_preview?: string;
+  };
+}
+
+export interface StoreResponse {
+  id: string;
+  hash: string;
+  storedAt: string;
+}
+
 class ApiError extends Error {
   status: number;
 
@@ -91,4 +105,25 @@ export async function getDNSRecord(
  */
 export async function checkHealth(): Promise<{ status: string; timestamp: string }> {
   return fetchJson(`${API_BASE_URL}/api/health`);
+}
+
+/**
+ * EMLファイルをR2/D1に保存（監査用）
+ */
+export async function storeEml(
+  emlArrayBuffer: ArrayBuffer,
+  metadata: StoreRequest['metadata']
+): Promise<StoreResponse> {
+  // ArrayBufferをBase64に変換
+  const bytes = new Uint8Array(emlArrayBuffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  const emlBase64 = btoa(binary);
+
+  return fetchJson<StoreResponse>(`${API_BASE_URL}/api/store`, {
+    method: 'POST',
+    body: JSON.stringify({ emlBase64, metadata }),
+  });
 }
