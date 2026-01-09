@@ -287,3 +287,51 @@ export async function getPresignedUrl(
     { method: 'POST' }
   );
 }
+
+// ========================================
+// セキュリティ分析API
+// ========================================
+
+/**
+ * ホモグラフ/コンフュザブル検出結果
+ */
+export interface ConfusableResult {
+  originalDomain: string;
+  normalizedDomain: string;
+  isIDN: boolean;
+  punycode: string | null;
+  confusableChars: {
+    original: string;
+    position: number;
+    normalized: string;
+    script: string;
+  }[];
+  matchedDomain: string | null;
+  similarity: number;
+  risk: 'none' | 'low' | 'medium' | 'high';
+  techniques: string[];
+}
+
+/**
+ * 単一ドメインのホモグラフ/コンフュザブル分析
+ */
+export async function analyzeConfusableDomain(domain: string): Promise<ConfusableResult> {
+  return fetchJson<ConfusableResult>(`${API_BASE_URL}/api/security/confusables`, {
+    method: 'POST',
+    body: JSON.stringify({ domain }),
+  });
+}
+
+/**
+ * 複数ドメインの一括分析
+ */
+export async function analyzeConfusableDomains(domains: string[]): Promise<ConfusableResult[]> {
+  const result = await fetchJson<{ results: ConfusableResult[] }>(
+    `${API_BASE_URL}/api/security/confusables`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ domains }),
+    }
+  );
+  return result.results;
+}

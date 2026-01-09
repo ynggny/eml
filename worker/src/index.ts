@@ -7,6 +7,7 @@ import { storeEml, getEml, type StoreRequest } from './storage';
 import { getDNSRecord } from './dns';
 import { listRecords, getRecord, getStats, deleteRecord } from './admin';
 import { verifyAuth, unauthorizedResponse } from './auth';
+import { analyzeConfusables, analyzeMultipleDomains } from './confusables';
 import { generateDownloadToken, verifyDownloadToken } from './token';
 
 interface Env {
@@ -87,6 +88,25 @@ export default {
           type.toUpperCase() as 'TXT' | 'A' | 'MX' | 'CNAME'
         );
         return jsonResponse({ domain, type: type.toUpperCase(), records });
+      }
+
+      // POST /api/security/confusables - ホモグラフ/コンフュザブル検出
+      if (path === '/api/security/confusables' && request.method === 'POST') {
+        const body = await request.json() as { domain?: string; domains?: string[] };
+
+        if (body.domains && Array.isArray(body.domains)) {
+          // 複数ドメイン分析
+          const results = analyzeMultipleDomains(body.domains);
+          return jsonResponse({ results });
+        }
+
+        if (body.domain) {
+          // 単一ドメイン分析
+          const result = analyzeConfusables(body.domain);
+          return jsonResponse(result);
+        }
+
+        return errorResponse('domain or domains is required');
       }
 
       // ヘルスチェック
