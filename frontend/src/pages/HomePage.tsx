@@ -14,6 +14,7 @@ import { HistoryButton } from '../components/VerificationHistory';
 import { ARCChainViewer } from '../components/ARCChainViewer';
 import { BIMIViewer } from '../components/BIMIViewer';
 import { EmailDiff } from '../components/EmailDiff';
+import { SampleDownloader } from '../components/SampleDownloader';
 import {
   parseEML,
   parseAuthResults,
@@ -105,6 +106,11 @@ export function HomePage() {
     }
   }, []);
 
+  // サンプルEMLを読み込む
+  const handleLoadSample = useCallback((file: File) => {
+    handleFilesSelect([file]);
+  }, [handleFilesSelect]);
+
   const handleReset = () => {
     setEmails([]);
     setSelectedIndex(0);
@@ -127,8 +133,9 @@ export function HomePage() {
       {/* メインコンテンツ */}
       {emails.length === 0 && !isLoading && (
         <div className="space-y-6">
-          {/* 履歴ボタン */}
-          <div className="flex justify-end">
+          {/* ツールバー */}
+          <div className="flex justify-between items-center">
+            <SampleDownloader onLoadSample={handleLoadSample} />
             <HistoryButton />
           </div>
 
