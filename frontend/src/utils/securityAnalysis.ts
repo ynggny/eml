@@ -295,7 +295,7 @@ export function extractLinksFromHtml(html: string): { url: string; text: string 
  * テキストからURLを抽出
  */
 export function extractLinksFromText(text: string): string[] {
-  const urlRegex = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/gi;
+  const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
   const matches = text.match(urlRegex);
   return matches ?? [];
 }
@@ -511,7 +511,8 @@ export function analyzeAttachment(attachment: Attachment): AttachmentRisk {
     if (risk === 'safe') risk = 'warning';
   }
 
-  // Unicode文字を含むファイル名
+  // Unicode文字を含むファイル名（ASCII範囲外の文字をチェック）
+  // eslint-disable-next-line no-control-regex
   if (/[^\x00-\x7F]/.test(filename) && !/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/.test(filename)) {
     // 日本語は許可、それ以外のUnicodeは警告
     issues.push('特殊文字を含むファイル名');

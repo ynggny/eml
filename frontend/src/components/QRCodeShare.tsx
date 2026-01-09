@@ -3,7 +3,7 @@
  * 検証結果のURLやハッシュをQRコードで共有
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import QRCode from 'qrcode';
 import type { SecurityScore } from '../utils/securityAnalysis';
 
@@ -20,7 +20,7 @@ export function QRCodeShare({ hash, score, fromDomain, subject }: QRCodeSharePro
   const [shareType, setShareType] = useState<'hash' | 'summary'>('summary');
 
   // QRコードに含めるデータを生成
-  const getShareData = () => {
+  const getShareData = useCallback(() => {
     if (shareType === 'hash') {
       return `SHA-256: ${hash}`;
     }
@@ -39,7 +39,7 @@ export function QRCodeShare({ hash, score, fromDomain, subject }: QRCodeSharePro
     ].filter(Boolean);
 
     return lines.join('\n');
-  };
+  }, [shareType, hash, score.score, score.grade, fromDomain, subject]);
 
   // QRコードを生成
   useEffect(() => {
@@ -64,7 +64,7 @@ export function QRCodeShare({ hash, score, fromDomain, subject }: QRCodeSharePro
     };
 
     generateQR();
-  }, [showModal, shareType, hash, score, fromDomain, subject]);
+  }, [showModal, getShareData]);
 
   // QRコードをダウンロード
   const handleDownload = () => {

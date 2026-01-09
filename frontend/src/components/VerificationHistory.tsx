@@ -2,7 +2,7 @@
  * 検証履歴表示コンポーネント
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   getHistory,
   removeFromHistory,
@@ -15,12 +15,8 @@ interface VerificationHistoryProps {
 }
 
 export function VerificationHistory({ onClose }: VerificationHistoryProps) {
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [history, setHistory] = useState<HistoryEntry[]>(() => getHistory());
   const [confirmClear, setConfirmClear] = useState(false);
-
-  useEffect(() => {
-    setHistory(getHistory());
-  }, []);
 
   const handleDelete = (id: string) => {
     removeFromHistory(id);
@@ -167,11 +163,7 @@ export function VerificationHistory({ onClose }: VerificationHistoryProps) {
  */
 export function HistoryButton() {
   const [showHistory, setShowHistory] = useState(false);
-  const [historyCount, setHistoryCount] = useState(0);
-
-  useEffect(() => {
-    setHistoryCount(getHistory().length);
-  }, []);
+  const [historyCount, setHistoryCount] = useState(() => getHistory().length);
 
   return (
     <>
