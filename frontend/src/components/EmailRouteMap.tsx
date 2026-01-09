@@ -141,35 +141,36 @@ function isPrivateIP(ip: string): boolean {
  */
 async function fetchGeoLocation(ip: string, hopIndex: number, hostname?: string): Promise<GeoLocation | null> {
   try {
-    // ip-api.com（無料、SSL非対応だが高速）
-    const response = await fetch(`http://ip-api.com/json/${ip}?fields=status,country,city,lat,lon,org`);
+    // ipapi.co（HTTPS対応、月1000リクエストまで無料）
+    const response = await fetch(`https://ipapi.co/${ip}/json/`);
     const data = await response.json();
 
-    if (data.status === 'success') {
+    if (data.latitude && data.longitude && !data.error) {
       return {
         ip,
-        lat: data.lat,
-        lon: data.lon,
+        lat: data.latitude,
+        lon: data.longitude,
         city: data.city,
-        country: data.country,
+        country: data.country_name,
         org: data.org,
         hopIndex,
         hostname,
       };
     }
 
-    // フォールバック: ipapi.co
-    const fallbackResponse = await fetch(`https://ipapi.co/${ip}/json/`);
+    // フォールバック: ip-api.com（HTTPSプロキシ経由）
+    // Note: 本番環境ではWorker経由でプロキシするのが望ましい
+    const fallbackResponse = await fetch(`https://ipwho.is/${ip}`);
     const fallbackData = await fallbackResponse.json();
 
-    if (fallbackData.latitude && fallbackData.longitude) {
+    if (fallbackData.success !== false && fallbackData.latitude) {
       return {
         ip,
         lat: fallbackData.latitude,
         lon: fallbackData.longitude,
         city: fallbackData.city,
-        country: fallbackData.country_name,
-        org: fallbackData.org,
+        country: fallbackData.country,
+        org: fallbackData.connection?.org,
         hopIndex,
         hostname,
       };
