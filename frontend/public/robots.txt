@@ -1,0 +1,30 @@
+# EML Viewer - robots.txt
+# https://eml.ynggny.com/
+
+User-agent: *
+Allow: /
+
+# サイトマップの場所
+Sitemap: https://eml.ynggny.com/sitemap.xml
+
+# クロール頻度の制限（サーバー負荷軽減）
+Crawl-delay: 1
+
+# AIクローラー向け設定（2025-2026年のSEO対策）
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
