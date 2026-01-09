@@ -91,3 +91,27 @@ export function parseAuthResults(
 
   return Object.keys(result).length > 0 ? result : null;
 }
+
+/**
+ * DKIM-Signatureヘッダーからセレクタを抽出する
+ */
+export function extractDkimSelector(headers: Header[]): string | undefined {
+  const dkimHeader = headers.find(
+    (h) => h.key.toLowerCase() === 'dkim-signature'
+  );
+
+  if (!dkimHeader) return undefined;
+
+  // s=selector の形式で記載されている
+  const match = dkimHeader.value.match(/s=([^;\s]+)/);
+  return match ? match[1] : undefined;
+}
+
+/**
+ * メールアドレスからドメインを抽出する
+ */
+export function extractDomain(email: string | null | undefined): string | null {
+  if (!email) return null;
+  const match = email.match(/@([^@\s>]+)/);
+  return match ? match[1] : null;
+}
