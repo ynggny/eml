@@ -1,9 +1,8 @@
 interface HashInfoProps {
   hash: string | null;
-  storeId?: string;
 }
 
-export function HashInfo({ hash, storeId }: HashInfoProps) {
+export function HashInfo({ hash }: HashInfoProps) {
   if (!hash) return null;
 
   const copyToClipboard = (text: string) => {
@@ -39,32 +38,6 @@ export function HashInfo({ hash, storeId }: HashInfoProps) {
             </button>
           </div>
         </div>
-
-        {/* 保存ID */}
-        {storeId && (
-          <div>
-            <p className="text-xs text-gray-500 mb-1">保存ID（監査用）</p>
-            <div className="flex items-center gap-2">
-              <code className="flex-1 text-xs text-blue-400 bg-gray-900 p-2 rounded overflow-x-auto">
-                {storeId}
-              </code>
-              <button
-                onClick={() => copyToClipboard(storeId)}
-                className="p-2 text-gray-400 hover:text-white transition-colors"
-                title="コピー"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
