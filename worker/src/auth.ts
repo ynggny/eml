@@ -54,26 +54,17 @@ export async function verifyAuth(
   const authHeader = request.headers.get('Authorization');
   const credentials = parseBasicAuth(authHeader);
 
-  console.log('Auth debug:', {
-    hasAuthHeader: !!authHeader,
-    hasCredentials: !!credentials,
-    envUsername: env.ADMIN_USERNAME,
-    hasEnvHash: !!env.ADMIN_PASSWORD_HASH,
-  });
-
   if (!credentials) {
     return false;
   }
 
   // ユーザー名を検証
   if (credentials.username !== env.ADMIN_USERNAME) {
-    console.log('Username mismatch:', credentials.username, '!==', env.ADMIN_USERNAME);
     return false;
   }
 
   // パスワードをハッシュ化して比較
   const passwordHash = await sha256(credentials.password);
-  console.log('Hash comparison:', passwordHash, '===', env.ADMIN_PASSWORD_HASH);
   return passwordHash === env.ADMIN_PASSWORD_HASH;
 }
 
