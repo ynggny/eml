@@ -1,0 +1,34 @@
+version: 2
+updates:
+  # フロントエンド（Cloudflare Pages）
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "daily"
+    labels:
+      - "dependencies"
+      - "frontend"
+    commit-message:
+      prefix: "deps(frontend):"
+
+  # バックエンド（Cloudflare Workers）
+  - package-ecosystem: "npm"
+    directory: "/worker"
+    schedule:
+      interval: "daily"
+    labels:
+      - "dependencies"
+      - "backend"
+    commit-message:
+      prefix: "deps(worker):"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "deps(actions):"
