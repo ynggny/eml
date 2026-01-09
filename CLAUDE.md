@@ -23,14 +23,28 @@
 
 ### GitHub CLI（gh）コマンドの使用
 gitのremoteがプロキシ経由の場合、ghコマンドがGitHubホストを認識できないことがあります。
-PRの作成などghコマンド使用時は、必ず `--repo` フラグでリポジトリを明示的に指定してください。
+PRの作成などghコマンド使用時は、必ず `--repo` フラグと `--head` フラグでリポジトリとブランチを明示的に指定してください。
 
 ```bash
-# PRの作成（--repo フラグ必須）
-gh pr create --repo ynggny/eml --title "タイトル" --body "本文"
+# PRの作成（--repo と --head フラグ必須）
+gh pr create --repo ynggny/eml --head ブランチ名 --title "タイトル" --body "本文"
 
 # PRの確認
 gh pr view --repo ynggny/eml 123
+```
+
+### PR作成後のコンフリクトチェック
+PRを作成したら、必ずコンフリクトの有無を確認してください。
+
+```bash
+# コンフリクトチェック
+gh pr view --repo ynggny/eml PR番号 --json mergeable,mergeStateStatus
+
+# コンフリクトがある場合はリベースして解消
+git fetch origin main
+git rebase origin/main
+# コンフリクト解消後
+git push -f origin ブランチ名
 ```
 
 ## プロジェクト概要
