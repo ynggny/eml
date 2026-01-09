@@ -5,7 +5,18 @@
 import { verifyDomain, type VerifyRequest } from './verify';
 import { storeEml, getEml, type StoreRequest } from './storage';
 import { getDNSRecord } from './dns';
-import { listRecords, getRecord, getStats, deleteRecord } from './admin';
+import {
+  listRecords,
+  getRecord,
+  getStats,
+  deleteRecord,
+  bulkDeleteRecords,
+  exportRecords,
+  findByHash,
+  verifyIntegrity,
+  getUniqueDomains,
+  getDashboardSummary,
+} from './admin';
 import { verifyAuth, unauthorizedResponse } from './auth';
 import { analyzeConfusables, analyzeMultipleDomains } from './confusables';
 import { generateDownloadToken, verifyDownloadToken } from './token';
@@ -214,12 +225,76 @@ export default {
           return jsonResponse(stats);
         }
 
-        // GET /api/admin/records - レコード一覧
+        // GET /api/admin/summary - ダッシュボードサマリー（高速）
+        if (path === '/api/admin/summary' && request.method === 'GET') {
+          const summary = await getDashboardSummary(env);
+          return jsonResponse(summary);
+        }
+
+        // GET /api/admin/domains - ユニークドメイン一覧
+        if (path === '/api/admin/domains' && request.method === 'GET') {
+          const domains = await getUniqueDomains(env);
+          return jsonResponse({ domains });
+        }
+
+        // GET /api/admin/records - レコード一覧（拡張検索対応）
         if (path === '/api/admin/records' && request.method === 'GET') {
           const page = parseInt(url.searchParams.get('page') ?? '1', 10);
           const limit = parseInt(url.searchParams.get('limit') ?? '20', 10);
           const search = url.searchParams.get('search') ?? undefined;
-          const result = await listRecords(env, { page, limit, search });
+          const dateFrom = url.searchParams.get('dateFrom') ?? undefined;
+          const dateTo = url.searchParams.get('dateTo') ?? undefined;
+          const domain = url.searchParams.get('domain') ?? undefined;
+          const hashPrefix = url.searchParams.get('hashPrefix') ?? undefined;
+          const sortBy = url.searchParams.get('sortBy') as 'stored_at' | 'from_domain' | 'subject_preview' | undefined;
+          const sortOrder = url.searchParams.get('sortOrder') as 'asc' | 'desc' | undefined;
+          const result = await listRecords(env, {
+            page, limit, search, dateFrom, dateTo, domain, hashPrefix, sortBy, sortOrder
+          });
+          return jsonResponse(result);
+        }
+
+        // POST /api/admin/records/bulk-delete - 一括削除
+        if (path === '/api/admin/records/bulk-delete' && request.method === 'POST') {
+          const body = await request.json() as { ids: string[] };
+          if (!body.ids || !Array.isArray(body.ids)) {
+            return errorResponse('ids array is required');
+          }
+          const result = await bulkDeleteRecords(env, body.ids);
+          return jsonResponse(result);
+        }
+
+        // POST /api/admin/records/export - エクスポート
+        if (path === '/api/admin/records/export' && request.method === 'POST') {
+          const body = await request.json() as {
+            search?: string;
+            dateFrom?: string;
+            dateTo?: string;
+            domain?: string;
+          };
+          const result = await exportRecords(env, body);
+          return jsonResponse(result);
+        }
+
+        // GET /api/admin/hash/:hash - ハッシュ検索
+        const hashSearchMatch = path.match(/^\/api\/admin\/hash\/([a-fA-F0-9]+)$/);
+        if (hashSearchMatch && request.method === 'GET') {
+          const [, hash] = hashSearchMatch;
+          const record = await findByHash(env, hash.toLowerCase());
+          if (!record) {
+            return jsonResponse({ found: false, record: null });
+          }
+          return jsonResponse({ found: true, record });
+        }
+
+        // POST /api/admin/records/:id/verify - 整合性検証
+        const verifyMatch = path.match(/^\/api\/admin\/records\/([^/]+)\/verify$/);
+        if (verifyMatch && request.method === 'POST') {
+          const [, id] = verifyMatch;
+          const result = await verifyIntegrity(env, id);
+          if (!result) {
+            return errorResponse('Record not found', 404);
+          }
           return jsonResponse(result);
         }
 
