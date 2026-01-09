@@ -127,3 +127,73 @@ export async function storeEml(
     body: JSON.stringify({ emlBase64, metadata }),
   });
 }
+
+// 管理画面用API
+
+export interface EmlRecord {
+  id: string;
+  hash_sha256: string;
+  from_domain: string | null;
+  subject_preview: string | null;
+  stored_at: string;
+  expires_at: string;
+  metadata: string;
+}
+
+export interface RecordListResponse {
+  records: EmlRecord[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+export interface StatsResponse {
+  totalRecords: number;
+  totalSize: number;
+  domainStats: { domain: string; count: number }[];
+  recentRecords: number;
+  expiringRecords: number;
+}
+
+/**
+ * 統計情報を取得
+ */
+export async function getStats(): Promise<StatsResponse> {
+  return fetchJson<StatsResponse>(`${API_BASE_URL}/api/admin/stats`);
+}
+
+/**
+ * レコード一覧を取得
+ */
+export async function getRecords(options: {
+  page?: number;
+  limit?: number;
+  search?: string;
+}): Promise<RecordListResponse> {
+  const params = new URLSearchParams();
+  if (options.page) params.set('page', options.page.toString());
+  if (options.limit) params.set('limit', options.limit.toString());
+  if (options.search) params.set('search', options.search);
+
+  return fetchJson<RecordListResponse>(
+    `${API_BASE_URL}/api/admin/records?${params.toString()}`
+  );
+}
+
+/**
+ * 個別レコードを取得
+ */
+export async function getRecord(id: string): Promise<EmlRecord> {
+  return fetchJson<EmlRecord>(`${API_BASE_URL}/api/admin/records/${id}`);
+}
+
+/**
+ * レコードを削除
+ */
+export async function deleteRecord(id: string): Promise<void> {
+  await fetchJson<{ success: boolean }>(
+    `${API_BASE_URL}/api/admin/records/${id}`,
+    { method: 'DELETE' }
+  );
+}

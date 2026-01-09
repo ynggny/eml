@@ -5,6 +5,7 @@
 import { verifyDomain, type VerifyRequest } from './verify';
 import { storeEml, type StoreRequest } from './storage';
 import { getDNSRecord } from './dns';
+import { listRecords, getRecord, getStats, deleteRecord } from './admin';
 
 interface Env {
   DB: D1Database;
@@ -17,7 +18,7 @@ interface Env {
 function corsHeaders(): HeadersInit {
   return {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
   };
 }
@@ -87,6 +88,43 @@ export default {
       // ヘルスチェック
       if (path === '/api/health') {
         return jsonResponse({ status: 'ok', timestamp: new Date().toISOString() });
+      }
+
+      // GET /api/admin/stats - 統計情報
+      if (path === '/api/admin/stats' && request.method === 'GET') {
+        const stats = await getStats(env);
+        return jsonResponse(stats);
+      }
+
+      // GET /api/admin/records - レコード一覧
+      if (path === '/api/admin/records' && request.method === 'GET') {
+        const page = parseInt(url.searchParams.get('page') ?? '1', 10);
+        const limit = parseInt(url.searchParams.get('limit') ?? '20', 10);
+        const search = url.searchParams.get('search') ?? undefined;
+        const result = await listRecords(env, { page, limit, search });
+        return jsonResponse(result);
+      }
+
+      // GET/DELETE /api/admin/records/:id - 個別レコード操作
+      const recordMatch = path.match(/^\/api\/admin\/records\/([^/]+)$/);
+      if (recordMatch) {
+        const [, id] = recordMatch;
+
+        if (request.method === 'GET') {
+          const record = await getRecord(env, id);
+          if (!record) {
+            return errorResponse('Record not found', 404);
+          }
+          return jsonResponse(record);
+        }
+
+        if (request.method === 'DELETE') {
+          const deleted = await deleteRecord(env, id);
+          if (!deleted) {
+            return errorResponse('Record not found', 404);
+          }
+          return jsonResponse({ success: true });
+        }
       }
 
       return errorResponse('Not Found', 404);
