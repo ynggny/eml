@@ -48,7 +48,7 @@ export interface StoreResponse {
   storedAt: string;
 }
 
-class ApiError extends Error {
+export class ApiError extends Error {
   status: number;
 
   constructor(message: string, status: number) {
@@ -58,11 +58,54 @@ class ApiError extends Error {
   }
 }
 
+// 認証情報の管理
+const AUTH_STORAGE_KEY = 'eml_admin_auth';
+
+export function getStoredAuth(): string | null {
+  return localStorage.getItem(AUTH_STORAGE_KEY);
+}
+
+export function setStoredAuth(username: string, password: string): void {
+  const credentials = btoa(`${username}:${password}`);
+  localStorage.setItem(AUTH_STORAGE_KEY, credentials);
+}
+
+export function clearStoredAuth(): void {
+  localStorage.removeItem(AUTH_STORAGE_KEY);
+}
+
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...options?.headers,
+    },
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new ApiError(data.error || 'API request failed', response.status);
+  }
+
+  return data as T;
+}
+
+async function fetchJsonWithAuth<T>(url: string, options?: RequestInit): Promise<T> {
+  const auth = getStoredAuth();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  if (auth) {
+    headers['Authorization'] = `Basic ${auth}`;
+  }
+
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      ...headers,
       ...options?.headers,
     },
   });
@@ -126,4 +169,74 @@ export async function storeEml(
     method: 'POST',
     body: JSON.stringify({ emlBase64, metadata }),
   });
+}
+
+// 管理画面用API
+
+export interface EmlRecord {
+  id: string;
+  hash_sha256: string;
+  from_domain: string | null;
+  subject_preview: string | null;
+  stored_at: string;
+  expires_at: string;
+  metadata: string;
+}
+
+export interface RecordListResponse {
+  records: EmlRecord[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+export interface StatsResponse {
+  totalRecords: number;
+  totalSize: number;
+  domainStats: { domain: string; count: number }[];
+  recentRecords: number;
+  expiringRecords: number;
+}
+
+/**
+ * 統計情報を取得（認証必須）
+ */
+export async function getStats(): Promise<StatsResponse> {
+  return fetchJsonWithAuth<StatsResponse>(`${API_BASE_URL}/api/admin/stats`);
+}
+
+/**
+ * レコード一覧を取得（認証必須）
+ */
+export async function getRecords(options: {
+  page?: number;
+  limit?: number;
+  search?: string;
+}): Promise<RecordListResponse> {
+  const params = new URLSearchParams();
+  if (options.page) params.set('page', options.page.toString());
+  if (options.limit) params.set('limit', options.limit.toString());
+  if (options.search) params.set('search', options.search);
+
+  return fetchJsonWithAuth<RecordListResponse>(
+    `${API_BASE_URL}/api/admin/records?${params.toString()}`
+  );
+}
+
+/**
+ * 個別レコードを取得（認証必須）
+ */
+export async function getRecord(id: string): Promise<EmlRecord> {
+  return fetchJsonWithAuth<EmlRecord>(`${API_BASE_URL}/api/admin/records/${id}`);
+}
+
+/**
+ * レコードを削除（認証必須）
+ */
+export async function deleteRecord(id: string): Promise<void> {
+  await fetchJsonWithAuth<{ success: boolean }>(
+    `${API_BASE_URL}/api/admin/records/${id}`,
+    { method: 'DELETE' }
+  );
 }

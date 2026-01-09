@@ -102,3 +102,21 @@ export interface EmlRecord {
   expires_at: string;
   metadata: string;
 }
+
+// 管理画面用型
+
+export interface RecordListResponse {
+  records: EmlRecord[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+export interface StatsResponse {
+  totalRecords: number;
+  totalSize: number;
+  domainStats: { domain: string; count: number }[];
+  recentRecords: number;
+  expiringRecords: number;
+}
