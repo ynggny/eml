@@ -1,10 +1,11 @@
 import { useCallback, useState } from 'react';
 
 interface DropZoneProps {
-  onFileSelect: (file: File) => void;
+  onFilesSelect: (files: File[]) => void;
+  multiple?: boolean;
 }
 
-export function DropZone({ onFileSelect }: DropZoneProps) {
+export function DropZone({ onFilesSelect, multiple = true }: DropZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -22,22 +23,27 @@ export function DropZone({ onFileSelect }: DropZoneProps) {
       e.preventDefault();
       setIsDragging(false);
 
-      const files = e.dataTransfer.files;
-      if (files.length > 0 && files[0].name.endsWith('.eml')) {
-        onFileSelect(files[0]);
+      const droppedFiles = Array.from(e.dataTransfer.files).filter((f) =>
+        f.name.endsWith('.eml')
+      );
+      if (droppedFiles.length > 0) {
+        onFilesSelect(multiple ? droppedFiles : [droppedFiles[0]]);
       }
     },
-    [onFileSelect]
+    [onFilesSelect, multiple]
   );
 
   const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
       if (files && files.length > 0) {
-        onFileSelect(files[0]);
+        const emlFiles = Array.from(files).filter((f) => f.name.endsWith('.eml'));
+        if (emlFiles.length > 0) {
+          onFilesSelect(multiple ? emlFiles : [emlFiles[0]]);
+        }
       }
     },
-    [onFileSelect]
+    [onFilesSelect, multiple]
   );
 
   return (
@@ -59,6 +65,7 @@ export function DropZone({ onFileSelect }: DropZoneProps) {
       <input
         type="file"
         accept=".eml"
+        multiple={multiple}
         onChange={handleFileInput}
         className="hidden"
         id="eml-file-input"
@@ -83,7 +90,9 @@ export function DropZone({ onFileSelect }: DropZoneProps) {
         <p className="mb-2 text-sm text-gray-400">
           <span className="font-semibold">クリックしてファイルを選択</span>
         </p>
-        <p className="text-xs text-gray-500">またはEMLファイルをドラッグ&ドロップ</p>
+        <p className="text-xs text-gray-500">
+          またはEMLファイルをドラッグ&ドロップ{multiple && '（複数可）'}
+        </p>
       </label>
     </div>
   );
