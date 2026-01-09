@@ -1,10 +1,104 @@
 <!doctype html>
-<html lang="en">
+<html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+
+    <!-- 基本メタタグ -->
+    <title>EML Viewer - メール検証・閲覧ツール</title>
+    <meta name="description" content="EMLファイルの安全な検証・閲覧ツール。DKIM/SPF/DMARC認証確認、送信元検証、改ざん検知に対応。法務・セキュリティ担当者からIT管理者まで幅広くご利用いただけます。" />
+    <meta name="keywords" content="EML,メール検証,DKIM,SPF,DMARC,メールヘッダー,フィッシング対策,メール認証,eml viewer,メールビューワー" />
+    <meta name="author" content="ynggny" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://eml.ynggny.com/" />
+
+    <!-- favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+
+    <!-- OGP (Open Graph Protocol) -->
+    <meta property="og:title" content="EML Viewer - メール検証・閲覧ツール" />
+    <meta property="og:description" content="EMLファイルの安全な検証・閲覧ツール。DKIM/SPF/DMARC認証確認、送信元検証、改ざん検知に対応。" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://eml.ynggny.com/" />
+    <meta property="og:image" content="https://eml.ynggny.com/ogp.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="EML Viewer - メール検証・閲覧ツール" />
+    <meta property="og:locale" content="ja_JP" />
+    <meta property="og:site_name" content="EML Viewer" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="EML Viewer - メール検証・閲覧ツール" />
+    <meta name="twitter:description" content="EMLファイルの安全な検証・閲覧ツール。DKIM/SPF/DMARC認証確認、送信元検証、改ざん検知に対応。" />
+    <meta name="twitter:image" content="https://eml.ynggny.com/ogp.png" />
+    <meta name="twitter:image:alt" content="EML Viewer - メール検証・閲覧ツール" />
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#1e293b" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="EML Viewer" />
+
+    <!-- プリコネクト（パフォーマンス最適化） -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- JSON-LD 構造化データ -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "EML Viewer",
+      "alternateName": "EMLビューワー",
+      "description": "EMLファイルの安全な検証・閲覧ツール。DKIM/SPF/DMARC認証確認、送信元検証、改ざん検知に対応。",
+      "url": "https://eml.ynggny.com/",
+      "applicationCategory": "SecurityApplication",
+      "operatingSystem": "Web Browser",
+      "browserRequirements": "Requires JavaScript. Requires HTML5.",
+      "softwareVersion": "1.0.0",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "JPY"
+      },
+      "featureList": [
+        "EMLファイルの閲覧",
+        "DKIM/SPF/DMARC認証結果の確認",
+        "送信元ドメインの検証",
+        "メールヘッダーの解析",
+        "添付ファイルの確認",
+        "ファイルハッシュ（SHA-256）の表示",
+        "改ざん検知"
+      ],
+      "screenshot": "https://eml.ynggny.com/ogp.png",
+      "author": {
+        "@type": "Organization",
+        "name": "ynggny"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "ynggny",
+        "url": "https://ynggny.com"
+      },
+      "inLanguage": "ja",
+      "isAccessibleForFree": true,
+      "audience": {
+        "@type": "Audience",
+        "audienceType": [
+          "法務・コンプライアンス担当者",
+          "セキュリティ担当者",
+          "IT管理者",
+          "一般ユーザー"
+        ]
+      }
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>
