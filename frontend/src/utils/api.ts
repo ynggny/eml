@@ -197,6 +197,63 @@ export interface StatsResponse {
   domainStats: { domain: string; count: number }[];
   recentRecords: number;
   expiringRecords: number;
+  // 拡張統計
+  authStats: {
+    verified: number;
+    unverified: number;
+    failed: number;
+  };
+  timelineData: {
+    date: string;
+    count: number;
+  }[];
+  hourlyDistribution: number[];
+}
+
+export interface DashboardSummary {
+  totalRecords: number;
+  todayRecords: number;
+  weekRecords: number;
+  monthRecords: number;
+  topDomains: { domain: string; count: number }[];
+}
+
+export interface AdvancedSearchOptions {
+  page?: number;
+  limit?: number;
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  domain?: string;
+  hashPrefix?: string;
+  sortBy?: 'stored_at' | 'from_domain' | 'subject_preview';
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface BulkOperationResult {
+  success: number;
+  failed: number;
+  errors: string[];
+}
+
+export interface ExportData {
+  records: EmlRecord[];
+  exportedAt: string;
+  totalRecords: number;
+  filters: Record<string, string>;
+}
+
+export interface IntegrityCheckResult {
+  id: string;
+  storedHash: string;
+  calculatedHash: string;
+  isValid: boolean;
+  checkedAt: string;
+}
+
+export interface HashSearchResult {
+  found: boolean;
+  record: EmlRecord | null;
 }
 
 /**
@@ -207,17 +264,19 @@ export async function getStats(): Promise<StatsResponse> {
 }
 
 /**
- * レコード一覧を取得（認証必須）
+ * レコード一覧を取得（認証必須・拡張検索対応）
  */
-export async function getRecords(options: {
-  page?: number;
-  limit?: number;
-  search?: string;
-}): Promise<RecordListResponse> {
+export async function getRecords(options: AdvancedSearchOptions): Promise<RecordListResponse> {
   const params = new URLSearchParams();
   if (options.page) params.set('page', options.page.toString());
   if (options.limit) params.set('limit', options.limit.toString());
   if (options.search) params.set('search', options.search);
+  if (options.dateFrom) params.set('dateFrom', options.dateFrom);
+  if (options.dateTo) params.set('dateTo', options.dateTo);
+  if (options.domain) params.set('domain', options.domain);
+  if (options.hashPrefix) params.set('hashPrefix', options.hashPrefix);
+  if (options.sortBy) params.set('sortBy', options.sortBy);
+  if (options.sortOrder) params.set('sortOrder', options.sortOrder);
 
   return fetchJsonWithAuth<RecordListResponse>(
     `${API_BASE_URL}/api/admin/records?${params.toString()}`
@@ -334,4 +393,65 @@ export async function analyzeConfusableDomains(domains: string[]): Promise<Confu
     }
   );
   return result.results;
+}
+
+// ========================================
+// 管理画面拡張API
+// ========================================
+
+/**
+ * ダッシュボードサマリーを取得（高速版）
+ */
+export async function getDashboardSummary(): Promise<DashboardSummary> {
+  return fetchJsonWithAuth<DashboardSummary>(`${API_BASE_URL}/api/admin/summary`);
+}
+
+/**
+ * ユニークドメイン一覧を取得
+ */
+export async function getUniqueDomains(): Promise<string[]> {
+  const result = await fetchJsonWithAuth<{ domains: string[] }>(`${API_BASE_URL}/api/admin/domains`);
+  return result.domains;
+}
+
+/**
+ * 一括削除
+ */
+export async function bulkDeleteRecords(ids: string[]): Promise<BulkOperationResult> {
+  return fetchJsonWithAuth<BulkOperationResult>(
+    `${API_BASE_URL}/api/admin/records/bulk-delete`,
+    { method: 'POST', body: JSON.stringify({ ids }) }
+  );
+}
+
+/**
+ * エクスポート
+ */
+export async function exportRecords(options: {
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  domain?: string;
+}): Promise<ExportData> {
+  return fetchJsonWithAuth<ExportData>(
+    `${API_BASE_URL}/api/admin/records/export`,
+    { method: 'POST', body: JSON.stringify(options) }
+  );
+}
+
+/**
+ * ハッシュ検索（完全一致）
+ */
+export async function searchByHash(hash: string): Promise<HashSearchResult> {
+  return fetchJsonWithAuth<HashSearchResult>(`${API_BASE_URL}/api/admin/hash/${hash}`);
+}
+
+/**
+ * 整合性検証（偽造検知）
+ */
+export async function verifyIntegrity(id: string): Promise<IntegrityCheckResult> {
+  return fetchJsonWithAuth<IntegrityCheckResult>(
+    `${API_BASE_URL}/api/admin/records/${id}/verify`,
+    { method: 'POST' }
+  );
 }
