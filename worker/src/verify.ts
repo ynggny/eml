@@ -30,7 +30,7 @@ export interface VerifyResponse {
 /**
  * DMARCポリシーを抽出
  */
-function extractDMARCPolicy(record: string): string | null {
+export function extractDMARCPolicy(record: string): string | null {
   const match = record.match(/p=(none|quarantine|reject)/);
   return match ? match[1] : null;
 }
