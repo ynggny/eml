@@ -33,18 +33,28 @@ gh pr create --repo ynggny/eml --head ブランチ名 --title "タイトル" --b
 gh pr view --repo ynggny/eml 123
 ```
 
-### PR作成後のコンフリクトチェック
-PRを作成したら、必ずコンフリクトの有無を確認してください。
+### ブランチ運用ルール
+- **リベース禁止**: 履歴改変を防ぐため、リベースは使用しない
+- **マージコミットのみ**: mainの取り込みは必ず `git merge` を使用する
+- **force push禁止**: `-f` オプションは原則使用しない
+
+### PR作成フロー
+PRを作成する前に、必ずmainブランチを取り込んでコンフリクトを解消してください。
 
 ```bash
-# コンフリクトチェック
-gh pr view --repo ynggny/eml PR番号 --json mergeable,mergeStateStatus
-
-# コンフリクトがある場合はリベースして解消
+# 1. mainを取り込む（PR作成前に必須）
 git fetch origin main
-git rebase origin/main
-# コンフリクト解消後
-git push -f origin ブランチ名
+git merge origin/main
+# コンフリクトがあれば解消してコミット
+
+# 2. プッシュ
+git push -u origin ブランチ名
+
+# 3. PR作成
+gh pr create --repo ynggny/eml --head ブランチ名 --title "タイトル" --body "本文"
+
+# 4. コンフリクトチェック（念のため確認）
+gh pr view --repo ynggny/eml PR番号 --json mergeable,mergeStateStatus
 ```
 
 ## プロジェクト概要
