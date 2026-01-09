@@ -3,11 +3,12 @@
  */
 
 import { verifyDomain, type VerifyRequest } from './verify';
-import { storeEml, type StoreRequest } from './storage';
+import { storeEml, getEml, type StoreRequest } from './storage';
 import { getDNSRecord } from './dns';
 import { listRecords, getRecord, getStats, deleteRecord } from './admin';
 import { verifyAuth, unauthorizedResponse } from './auth';
 import { analyzeConfusables, analyzeMultipleDomains } from './confusables';
+import { generateDownloadToken, verifyDownloadToken } from './token';
 
 interface Env {
   DB: D1Database;
@@ -113,6 +114,32 @@ export default {
         return jsonResponse({ status: 'ok', timestamp: new Date().toISOString() });
       }
 
+      // GET /api/download/:token - 公開ダウンロード（トークン認証）
+      const publicDownloadMatch = path.match(/^\/api\/download\/(.+)$/);
+      if (publicDownloadMatch && request.method === 'GET') {
+        const [, token] = publicDownloadMatch;
+        const recordId = await verifyDownloadToken(token, env.ADMIN_PASSWORD_HASH);
+
+        if (!recordId) {
+          return errorResponse('Invalid or expired download link', 403);
+        }
+
+        const emlData = await getEml(recordId, env);
+        if (!emlData) {
+          return errorResponse('Record not found', 404);
+        }
+
+        const filename = `${recordId}.eml`;
+        return new Response(emlData.data, {
+          status: 200,
+          headers: {
+            'Content-Type': 'message/rfc822',
+            'Content-Disposition': `attachment; filename="${filename}"`,
+            ...corsHeaders(),
+          },
+        });
+      }
+
       // 管理用API - 認証必須
       if (path.startsWith('/api/admin/')) {
         const isAuthenticated = await verifyAuth(request, env);
@@ -133,6 +160,52 @@ export default {
           const search = url.searchParams.get('search') ?? undefined;
           const result = await listRecords(env, { page, limit, search });
           return jsonResponse(result);
+        }
+
+        // GET /api/admin/records/:id/download - EMLファイルダウンロード
+        const downloadMatch = path.match(/^\/api\/admin\/records\/([^/]+)\/download$/);
+        if (downloadMatch && request.method === 'GET') {
+          const [, id] = downloadMatch;
+          const emlData = await getEml(id, env);
+          if (!emlData) {
+            return errorResponse('Record not found', 404);
+          }
+
+          // Content-Dispositionでファイル名を指定
+          const filename = `${id}.eml`;
+          return new Response(emlData.data, {
+            status: 200,
+            headers: {
+              'Content-Type': 'message/rfc822',
+              'Content-Disposition': `attachment; filename="${filename}"`,
+              ...corsHeaders(),
+            },
+          });
+        }
+
+        // POST /api/admin/records/:id/presign - 署名付きダウンロードURL生成
+        const presignMatch = path.match(/^\/api\/admin\/records\/([^/]+)\/presign$/);
+        if (presignMatch && request.method === 'POST') {
+          const [, id] = presignMatch;
+
+          // レコードの存在確認
+          const record = await getRecord(env, id);
+          if (!record) {
+            return errorResponse('Record not found', 404);
+          }
+
+          // 有効期限（分）をクエリパラメータから取得（デフォルト60分）
+          const expiresIn = parseInt(url.searchParams.get('expires') ?? '60', 10);
+          const token = await generateDownloadToken(id, env.ADMIN_PASSWORD_HASH, expiresIn);
+
+          // 完全なURLを生成
+          const downloadUrl = `${url.origin}/api/download/${token}`;
+
+          return jsonResponse({
+            url: downloadUrl,
+            expiresIn: expiresIn * 60, // 秒単位
+            expiresAt: new Date(Date.now() + expiresIn * 60 * 1000).toISOString(),
+          });
         }
 
         // GET/DELETE /api/admin/records/:id - 個別レコード操作

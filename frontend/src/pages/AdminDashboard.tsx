@@ -3,6 +3,8 @@ import {
   getStats,
   getRecords,
   deleteRecord,
+  downloadEml,
+  getPresignedUrl,
   getStoredAuth,
   setStoredAuth,
   clearStoredAuth,
@@ -10,6 +12,8 @@ import {
   type StatsResponse,
   type EmlRecord,
 } from '../utils/api';
+import { parseEML, type ParsedEmail } from '../utils/emlParser';
+import { EmailViewer } from '../components/EmailViewer';
 
 export function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -404,7 +408,30 @@ function RecordDetailModal({
   onDelete: (id: string) => void;
   formatDate: (dateStr: string) => string;
 }) {
+  const [parsedEmail, setParsedEmail] = useState<ParsedEmail | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showEml, setShowEml] = useState(false);
   const metadata = record.metadata ? JSON.parse(record.metadata) : {};
+
+  const handleLoadEml = async () => {
+    if (parsedEmail) {
+      setShowEml(!showEml);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const blob = await downloadEml(record.id);
+      const arrayBuffer = await blob.arrayBuffer();
+      const parsed = await parseEML(arrayBuffer);
+      setParsedEmail(parsed);
+      setShowEml(true);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'EMLの取得に失敗しました');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div
@@ -412,7 +439,7 @@ function RecordDetailModal({
       onClick={onClose}
     >
       <div
-        className="bg-gray-800 rounded-lg max-w-lg w-full max-h-[80vh] overflow-auto"
+        className="bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
@@ -439,6 +466,32 @@ function RecordDetailModal({
               <pre className="text-sm bg-gray-900 p-2 rounded text-gray-300 overflow-auto">
                 {JSON.stringify(metadata, null, 2)}
               </pre>
+            </div>
+          )}
+
+          {/* EML内容表示・ダウンロード */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handleLoadEml}
+                disabled={isLoading}
+                className="text-sm text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50"
+              >
+                {isLoading
+                  ? '読み込み中...'
+                  : showEml
+                    ? 'EML内容を隠す'
+                    : 'EML内容を表示'}
+              </button>
+              <span className="text-gray-500">|</span>
+              <DownloadUrl recordId={record.id} />
+            </div>
+          </div>
+
+          {/* EML内容（リッチ表示） */}
+          {showEml && parsedEmail && (
+            <div className="border-t border-gray-700 pt-4 mt-4">
+              <EmailViewer email={parsedEmail} />
             </div>
           )}
         </div>
@@ -481,6 +534,91 @@ function DetailRow({
       >
         {value || '（なし）'}
       </p>
+    </div>
+  );
+}
+
+function DownloadUrl({ recordId }: { recordId: string }) {
+  const [presignedUrl, setPresignedUrl] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleGenerateUrl = async () => {
+    setIsLoading(true);
+    try {
+      const result = await getPresignedUrl(recordId, 60); // 60分有効
+      setPresignedUrl(result.url);
+      setExpiresAt(result.expiresAt);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'URL生成に失敗しました');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCopy = async () => {
+    if (!presignedUrl) return;
+
+    try {
+      await navigator.clipboard.writeText(presignedUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // フォールバック
+      const textArea = document.createElement('textarea');
+      textArea.value = presignedUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  if (!presignedUrl) {
+    return (
+      <button
+        onClick={handleGenerateUrl}
+        disabled={isLoading}
+        className="text-sm text-blue-400 hover:text-blue-300 transition-colors disabled:opacity-50"
+      >
+        {isLoading ? '生成中...' : '共有URLを生成'}
+      </button>
+    );
+  }
+
+  const formatExpiry = (dateStr: string) => {
+    return new Date(dateStr).toLocaleString('ja-JP', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={handleCopy}
+        className="text-sm text-gray-400 hover:text-gray-300 transition-colors flex items-center gap-1"
+      >
+        {copied ? (
+          <>
+            <span className="text-green-400">✓</span>
+            <span>コピー済み</span>
+          </>
+        ) : (
+          <>
+            <span>📋</span>
+            <span>URLをコピー</span>
+          </>
+        )}
+      </button>
+      {expiresAt && (
+        <span className="text-xs text-gray-500">
+          ({formatExpiry(expiresAt)}まで有効)
+        </span>
+      )}
     </div>
   );
 }

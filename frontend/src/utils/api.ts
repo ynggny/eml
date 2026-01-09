@@ -241,6 +241,53 @@ export async function deleteRecord(id: string): Promise<void> {
   );
 }
 
+/**
+ * EMLファイルをダウンロード（認証必須）
+ */
+export async function downloadEml(id: string): Promise<Blob> {
+  const auth = getStoredAuth();
+  const headers: Record<string, string> = {};
+
+  if (auth) {
+    headers['Authorization'] = `Basic ${auth}`;
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/admin/records/${id}/download`,
+    { headers }
+  );
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new ApiError('Unauthorized', 401);
+    }
+    throw new ApiError('Download failed', response.status);
+  }
+
+  return response.blob();
+}
+
+export interface PresignedUrlResponse {
+  url: string;
+  expiresIn: number;
+  expiresAt: string;
+}
+
+/**
+ * 署名付きダウンロードURLを生成（認証必須）
+ * @param id レコードID
+ * @param expiresInMinutes 有効期限（分）デフォルト60分
+ */
+export async function getPresignedUrl(
+  id: string,
+  expiresInMinutes = 60
+): Promise<PresignedUrlResponse> {
+  return fetchJsonWithAuth<PresignedUrlResponse>(
+    `${API_BASE_URL}/api/admin/records/${id}/presign?expires=${expiresInMinutes}`,
+    { method: 'POST' }
+  );
+}
+
 // ========================================
 // セキュリティ分析API
 // ========================================
