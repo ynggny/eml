@@ -6,6 +6,8 @@ import { HashInfo } from './components/HashInfo';
 import { DomainVerification } from './components/DomainVerification';
 import { ThreadView } from './components/ThreadView';
 import { ReceivedPath } from './components/ReceivedPath';
+import { HeaderInsights } from './components/HeaderInsights';
+import { HeaderVerification } from './components/HeaderVerification';
 import {
   parseEML,
   parseAuthResults,
@@ -149,9 +151,6 @@ function App() {
             <div className="flex justify-between items-center">
               <div className="text-sm text-gray-400">
                 {emails.length}件のメールを読み込みました
-                {selectedEmail.storeResult && (
-                  <span className="ml-2 text-green-500">✓ 保存済み</span>
-                )}
               </div>
               <button
                 onClick={handleReset}
@@ -173,10 +172,7 @@ function App() {
             {/* 認証結果とハッシュ */}
             <div className="grid md:grid-cols-2 gap-4">
               <AuthResults results={authResults} />
-              <HashInfo
-                hash={selectedEmail.hash}
-                storeId={selectedEmail.storeResult?.id}
-              />
+              <HashInfo hash={selectedEmail.hash} />
             </div>
 
             {/* DNS検証 */}
@@ -187,6 +183,18 @@ function App() {
 
             {/* メール経路 */}
             <ReceivedPath headers={selectedEmail.email.headers} />
+
+            {/* ヘッダー分析 */}
+            <div className="grid md:grid-cols-2 gap-4">
+              <HeaderInsights
+                headers={selectedEmail.email.headers}
+                fromAddress={selectedEmail.email.from?.address ?? null}
+              />
+              <HeaderVerification
+                key={selectedIndex}
+                headers={selectedEmail.email.headers}
+              />
+            </div>
 
             {/* メール本体 */}
             <EmailViewer email={selectedEmail.email} />

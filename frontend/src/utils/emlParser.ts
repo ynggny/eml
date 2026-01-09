@@ -9,6 +9,7 @@ export interface ParsedEmail {
   text: string | null;
   attachments: Attachment[];
   headers: Header[];
+  rawHeaders: string;
 }
 
 export interface Attachment {
@@ -47,6 +48,12 @@ export async function parseEML(emlContent: ArrayBuffer): Promise<ParsedEmail> {
   const parser = new PostalMime();
   const email = await parser.parse(emlContent);
 
+  // rawヘッダーを抽出（ヘッダーと本文は空行で区切られる）
+  const emlText = new TextDecoder().decode(emlContent);
+  const headerEndIndex = emlText.search(/\r?\n\r?\n/);
+  const rawHeaders =
+    headerEndIndex !== -1 ? emlText.slice(0, headerEndIndex) : emlText;
+
   return {
     from: convertAddress(email.from),
     to: convertAddressList(email.to),
@@ -63,6 +70,7 @@ export async function parseEML(emlContent: ArrayBuffer): Promise<ParsedEmail> {
       key: h.key,
       value: h.value,
     })),
+    rawHeaders,
   };
 }
 

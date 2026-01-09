@@ -6,9 +6,40 @@ interface EmailViewerProps {
 }
 
 type ViewMode = 'html' | 'text' | 'headers';
+type HeaderViewMode = 'parsed' | 'raw';
+
+// ヘッダーの説明データ
+const HEADER_DESCRIPTIONS: Record<string, string> = {
+  from: '送信者のメールアドレス。偽装される可能性があるため、SPF/DKIM/DMARCの検証結果と合わせて確認が必要',
+  to: '宛先のメールアドレス。BCCは表示されない',
+  subject: 'メールの件名',
+  date: 'メールが送信された日時（送信者のタイムゾーン）',
+  'message-id': 'メールを一意に識別するID。通常は送信サーバーが生成',
+  received: 'メールが経由したサーバーの記録。下から上に時系列順。経路追跡に重要',
+  'return-path': 'バウンスメールの返送先。Fromと異なる場合は要注意',
+  'reply-to': '返信先アドレス。Fromと異なる場合はフィッシングの可能性',
+  'x-mailer': '送信に使用されたメールクライアント/ソフトウェア',
+  'user-agent': '送信に使用されたメールクライアント（X-Mailerと同様）',
+  'x-originating-ip': '送信元の実際のIPアドレス。発信地の特定に使用',
+  'dkim-signature': 'DKIM署名。送信ドメインの認証とメール改ざん検知に使用',
+  'authentication-results': 'SPF/DKIM/DMARC認証の結果。受信サーバーが付与',
+  'content-type': 'メールのコンテンツ形式（text/plain, text/html, multipartなど）',
+  'mime-version': 'MIMEプロトコルのバージョン',
+  'list-unsubscribe': 'メーリングリストの購読解除URL/アドレス',
+  'list-id': 'メーリングリストの識別子',
+  'x-spam-status': 'スパムフィルターの判定結果',
+  'x-spam-score': 'スパムスコア（高いほどスパムの可能性大）',
+  'x-priority': 'メールの優先度（1=高, 3=通常, 5=低）',
+  importance: 'メールの重要度',
+  'arc-seal': 'ARC（Authenticated Received Chain）のシール。転送時の認証連鎖',
+  'arc-message-signature': 'ARC署名。転送チェーンでの認証情報',
+  'arc-authentication-results': 'ARC認証結果。転送前の認証状態',
+};
 
 export function EmailViewer({ email }: EmailViewerProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('html');
+  const [headerViewMode, setHeaderViewMode] = useState<HeaderViewMode>('parsed');
+  const [hoveredHeader, setHoveredHeader] = useState<string | null>(null);
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return 'N/A';
@@ -154,13 +185,68 @@ export function EmailViewer({ email }: EmailViewerProps) {
         )}
 
         {viewMode === 'headers' && (
-          <div className="space-y-1 text-xs font-mono">
-            {email.headers.map((h, i) => (
-              <div key={i} className="flex gap-2">
-                <span className="text-blue-400 shrink-0">{h.key}:</span>
-                <span className="text-gray-300 break-all">{h.value}</span>
+          <div className="space-y-4">
+            {/* 整形/Raw切り替え */}
+            <div className="flex gap-2 text-xs">
+              <button
+                onClick={() => setHeaderViewMode('parsed')}
+                className={`px-3 py-1 rounded ${
+                  headerViewMode === 'parsed'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                整形
+              </button>
+              <button
+                onClick={() => setHeaderViewMode('raw')}
+                className={`px-3 py-1 rounded ${
+                  headerViewMode === 'raw'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                Raw
+              </button>
+            </div>
+
+            {headerViewMode === 'parsed' ? (
+              <div className="space-y-1 text-xs font-mono">
+                {email.headers.map((h, i) => {
+                  const headerKey = h.key.toLowerCase();
+                  const description = HEADER_DESCRIPTIONS[headerKey];
+                  return (
+                    <div
+                      key={i}
+                      className="relative flex gap-2 group"
+                      onMouseEnter={() => setHoveredHeader(`${headerKey}-${i}`)}
+                      onMouseLeave={() => setHoveredHeader(null)}
+                    >
+                      <span
+                        className={`shrink-0 ${
+                          description
+                            ? 'text-blue-400 cursor-help border-b border-dashed border-blue-400/50'
+                            : 'text-blue-400'
+                        }`}
+                      >
+                        {h.key}:
+                      </span>
+                      <span className="text-gray-300 break-all">{h.value}</span>
+                      {/* ツールチップ */}
+                      {description && hoveredHeader === `${headerKey}-${i}` && (
+                        <div className="absolute left-0 bottom-full mb-1 z-10 max-w-md p-2 bg-gray-900 border border-gray-600 rounded shadow-lg text-xs text-gray-200">
+                          {description}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            ))}
+            ) : (
+              <pre className="text-xs text-gray-300 whitespace-pre-wrap font-mono bg-gray-900 p-3 rounded overflow-x-auto">
+                {email.rawHeaders}
+              </pre>
+            )}
           </div>
         )}
       </div>
