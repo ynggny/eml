@@ -3,7 +3,14 @@ import { DropZone } from './components/DropZone';
 import { EmailViewer } from './components/EmailViewer';
 import { AuthResults } from './components/AuthResults';
 import { HashInfo } from './components/HashInfo';
-import { parseEML, parseAuthResults, type ParsedEmail } from './utils/emlParser';
+import { DomainVerification } from './components/DomainVerification';
+import {
+  parseEML,
+  parseAuthResults,
+  extractDkimSelector,
+  extractDomain,
+  type ParsedEmail,
+} from './utils/emlParser';
 import { computeSHA256 } from './utils/hashUtils';
 
 function App() {
@@ -42,6 +49,8 @@ function App() {
   };
 
   const authResults = email ? parseAuthResults(email.headers) : null;
+  const fromDomain = email ? extractDomain(email.from?.address) : null;
+  const dkimSelector = email ? extractDkimSelector(email.headers) : undefined;
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -100,6 +109,12 @@ function App() {
               <AuthResults results={authResults} />
               <HashInfo hash={hash} />
             </div>
+
+            {/* DNS検証 */}
+            <DomainVerification
+              domain={fromDomain}
+              dkimSelector={dkimSelector}
+            />
 
             {/* メール本体 */}
             <EmailViewer email={email} />
