@@ -8,6 +8,12 @@ import { ThreadView } from '../components/ThreadView';
 import { ReceivedPath } from '../components/ReceivedPath';
 import { HeaderInsights } from '../components/HeaderInsights';
 import { HeaderVerification } from '../components/HeaderVerification';
+import { SecurityAnalysis } from '../components/SecurityAnalysis';
+import { EmailRouteMap } from '../components/EmailRouteMap';
+import { HistoryButton } from '../components/VerificationHistory';
+import { ARCChainViewer } from '../components/ARCChainViewer';
+import { BIMIViewer } from '../components/BIMIViewer';
+import { EmailDiff } from '../components/EmailDiff';
 import {
   parseEML,
   parseAuthResults,
@@ -17,6 +23,8 @@ import {
 } from '../utils/emlParser';
 import { computeSHA256 } from '../utils/hashUtils';
 import { storeEml, type StoreResponse } from '../utils/api';
+import { addToHistory } from '../utils/historyStorage';
+import { calculateSecurityScore } from '../utils/securityAnalysis';
 
 interface EmailData {
   email: ParsedEmail;
@@ -63,6 +71,19 @@ export function HomePage() {
           rawData: arrayBuffer,
           storeResult,
         });
+
+        // 履歴に追加
+        const authRes = parseAuthResults(parsedEmail.headers);
+        const domain = extractDomain(parsedEmail.from?.address);
+        const score = calculateSecurityScore(parsedEmail, authRes, domain);
+        addToHistory({
+          hash: fileHash,
+          fromDomain: domain,
+          subject: parsedEmail.subject,
+          date: parsedEmail.date,
+          score: score.score,
+          grade: score.grade,
+        });
       }
 
       // 日付順にソート（新しい順）
@@ -106,6 +127,11 @@ export function HomePage() {
       {/* メインコンテンツ */}
       {emails.length === 0 && !isLoading && (
         <div className="space-y-6">
+          {/* 履歴ボタン */}
+          <div className="flex justify-end">
+            <HistoryButton />
+          </div>
+
           <DropZone onFilesSelect={handleFilesSelect} />
 
           {error && (
@@ -169,14 +195,37 @@ export function HomePage() {
             <HashInfo hash={selectedEmail.hash} />
           </div>
 
-          {/* DNS検証 */}
-          <DomainVerification
-            domain={fromDomain}
-            dkimSelector={dkimSelector}
+          {/* セキュリティ分析 */}
+          <SecurityAnalysis
+            email={selectedEmail.email}
+            authResults={authResults}
+            fromDomain={fromDomain}
+            hash={selectedEmail.hash}
+          />
+
+          {/* DNS検証 & BIMI */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <DomainVerification
+              domain={fromDomain}
+              dkimSelector={dkimSelector}
+            />
+            <BIMIViewer domain={fromDomain} />
+          </div>
+
+          {/* ARC検証 */}
+          <ARCChainViewer headers={selectedEmail.email.headers} />
+
+          {/* メール比較 */}
+          <EmailDiff
+            emails={emails.map(e => e.email)}
+            selectedIndex={selectedIndex}
           />
 
           {/* メール経路 */}
           <ReceivedPath headers={selectedEmail.email.headers} />
+
+          {/* 経路マップ */}
+          <EmailRouteMap headers={selectedEmail.email.headers} />
 
           {/* ヘッダー分析 */}
           <div className="grid md:grid-cols-2 gap-4">
