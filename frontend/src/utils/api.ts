@@ -240,3 +240,29 @@ export async function deleteRecord(id: string): Promise<void> {
     { method: 'DELETE' }
   );
 }
+
+/**
+ * EMLファイルをダウンロード（認証必須）
+ */
+export async function downloadEml(id: string): Promise<Blob> {
+  const auth = getStoredAuth();
+  const headers: Record<string, string> = {};
+
+  if (auth) {
+    headers['Authorization'] = `Basic ${auth}`;
+  }
+
+  const response = await fetch(
+    `${API_BASE_URL}/api/admin/records/${id}/download`,
+    { headers }
+  );
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new ApiError('Unauthorized', 401);
+    }
+    throw new ApiError('Download failed', response.status);
+  }
+
+  return response.blob();
+}

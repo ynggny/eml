@@ -3,7 +3,7 @@
  */
 
 import { verifyDomain, type VerifyRequest } from './verify';
-import { storeEml, type StoreRequest } from './storage';
+import { storeEml, getEml, type StoreRequest } from './storage';
 import { getDNSRecord } from './dns';
 import { listRecords, getRecord, getStats, deleteRecord } from './admin';
 import { verifyAuth, unauthorizedResponse } from './auth';
@@ -113,6 +113,27 @@ export default {
           const search = url.searchParams.get('search') ?? undefined;
           const result = await listRecords(env, { page, limit, search });
           return jsonResponse(result);
+        }
+
+        // GET /api/admin/records/:id/download - EMLファイルダウンロード
+        const downloadMatch = path.match(/^\/api\/admin\/records\/([^/]+)\/download$/);
+        if (downloadMatch && request.method === 'GET') {
+          const [, id] = downloadMatch;
+          const emlData = await getEml(id, env);
+          if (!emlData) {
+            return errorResponse('Record not found', 404);
+          }
+
+          // Content-Dispositionでファイル名を指定
+          const filename = `${id}.eml`;
+          return new Response(emlData.data, {
+            status: 200,
+            headers: {
+              'Content-Type': 'message/rfc822',
+              'Content-Disposition': `attachment; filename="${filename}"`,
+              ...corsHeaders(),
+            },
+          });
         }
 
         // GET/DELETE /api/admin/records/:id - 個別レコード操作
