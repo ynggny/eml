@@ -6,11 +6,15 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "db:create": "wrangler d1 create eml-viewer-db",
-    "db:migrate": "wrangler d1 execute eml-viewer-db --local --file=./migrations/001_init.sql"
+    "db:migrate": "wrangler d1 execute eml-viewer-db --local --file=./migrations/001_init.sql",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240208.0",
     "typescript": "^5.3.3",
+    "vitest": "^3.2.4",
     "wrangler": "^4.58.0"
   }
 }
