@@ -14,7 +14,7 @@ export interface ParsedEmail {
 export interface Attachment {
   filename: string;
   mimeType: string;
-  content: ArrayBuffer;
+  content: ArrayBuffer | string;
 }
 
 export interface Header {
@@ -23,15 +23,33 @@ export interface Header {
 }
 
 /**
- * EMLファイルをパースしてメール情報を抽出する
+ * postal-mimeのAddress型からシンプルなアドレス形式に変換
+ * グループアドレス（addressがundefined）は除外
  */
+function convertAddress(
+  addr: { address?: string; name?: string } | null | undefined
+): { address: string; name?: string } | null {
+  if (!addr || !addr.address) return null;
+  return { address: addr.address, name: addr.name };
+}
+
+function convertAddressList(
+  addrs: { address?: string; name?: string }[] | null | undefined
+): { address: string; name?: string }[] | null {
+  if (!addrs) return null;
+  const filtered = addrs
+    .filter((a): a is { address: string; name?: string } => !!a.address)
+    .map((a) => ({ address: a.address, name: a.name }));
+  return filtered.length > 0 ? filtered : null;
+}
+
 export async function parseEML(emlContent: ArrayBuffer): Promise<ParsedEmail> {
   const parser = new PostalMime();
   const email = await parser.parse(emlContent);
 
   return {
-    from: email.from ?? null,
-    to: email.to ?? null,
+    from: convertAddress(email.from),
+    to: convertAddressList(email.to),
     subject: email.subject ?? null,
     date: email.date ?? null,
     html: email.html ?? null,
