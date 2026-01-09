@@ -20,6 +20,13 @@ import {
 import { verifyAuth, unauthorizedResponse } from './auth';
 import { analyzeConfusables, analyzeMultipleDomains } from './confusables';
 import { generateDownloadToken, verifyDownloadToken } from './token';
+import {
+  performFullAnalysis,
+  performQuickAnalysis,
+  verifyDKIMSignature,
+  verifyARCChain,
+  type AnalysisRequest,
+} from './analysis';
 
 interface Env {
   DB: D1Database;
@@ -118,6 +125,60 @@ export default {
         }
 
         return errorResponse('domain or domains is required');
+      }
+
+      // POST /api/analyze - 統合セキュリティ分析（フル）
+      if (path === '/api/analyze' && request.method === 'POST') {
+        const body: AnalysisRequest = await request.json();
+
+        if (!body.headers || !Array.isArray(body.headers)) {
+          return errorResponse('headers is required');
+        }
+
+        const result = await performFullAnalysis(body);
+        return jsonResponse(result);
+      }
+
+      // POST /api/analyze/quick - 軽量セキュリティ分析（DKIM/ARC検証なし）
+      if (path === '/api/analyze/quick' && request.method === 'POST') {
+        const body: AnalysisRequest = await request.json();
+
+        if (!body.headers || !Array.isArray(body.headers)) {
+          return errorResponse('headers is required');
+        }
+
+        const result = performQuickAnalysis(body);
+        return jsonResponse(result);
+      }
+
+      // POST /api/security/dkim - DKIM署名検証
+      if (path === '/api/security/dkim' && request.method === 'POST') {
+        const body = await request.json() as {
+          headers: { key: string; value: string }[];
+          body?: string;
+          rawHeaders?: string;
+        };
+
+        if (!body.headers || !Array.isArray(body.headers)) {
+          return errorResponse('headers is required');
+        }
+
+        const result = await verifyDKIMSignature(body.headers, body.body ?? '', body.rawHeaders);
+        return jsonResponse(result);
+      }
+
+      // POST /api/security/arc - ARCチェーン検証
+      if (path === '/api/security/arc' && request.method === 'POST') {
+        const body = await request.json() as {
+          headers: { key: string; value: string }[];
+        };
+
+        if (!body.headers || !Array.isArray(body.headers)) {
+          return errorResponse('headers is required');
+        }
+
+        const result = await verifyARCChain(body.headers);
+        return jsonResponse(result);
       }
 
       // ヘルスチェック

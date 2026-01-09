@@ -396,6 +396,275 @@ export async function analyzeConfusableDomains(domains: string[]): Promise<Confu
 }
 
 // ========================================
+// 統合セキュリティ分析API
+// ========================================
+
+/**
+ * 分析リクエスト
+ */
+export interface AnalysisRequest {
+  from?: string;
+  fromDomain?: string;
+  to?: string[];
+  subject?: string;
+  date?: string;
+  headers: { key: string; value: string }[];
+  rawHeaders?: string;
+  html?: string;
+  text?: string;
+  attachments: { filename: string; mimeType: string; size: number }[];
+  rawBody?: string;
+  authResults?: {
+    spf?: string;
+    dkim?: string;
+    dmarc?: string;
+  };
+}
+
+/**
+ * リンク分析結果
+ */
+export interface LinkAnalysisResult {
+  url: string;
+  displayText?: string;
+  issues: string[];
+  risk: 'safe' | 'suspicious' | 'dangerous';
+  details?: {
+    hostname: string;
+    protocol: string;
+    isShortened: boolean;
+    isSuspiciousTLD: boolean;
+    isIPAddress: boolean;
+    lookalikeDomain?: string;
+  };
+}
+
+/**
+ * 添付ファイル分析結果
+ */
+export interface AttachmentAnalysisResult {
+  filename: string;
+  mimeType: string;
+  size: number;
+  issues: string[];
+  risk: 'safe' | 'warning' | 'dangerous';
+  category?: 'executable' | 'macro' | 'archive' | 'document' | 'image' | 'other';
+}
+
+/**
+ * BEC検出結果
+ */
+export interface BECIndicator {
+  pattern: string;
+  description: string;
+  severity: 'low' | 'medium' | 'high';
+  matchedText?: string;
+  category: 'urgency' | 'financial' | 'authority' | 'secrecy' | 'credential' | 'action';
+}
+
+/**
+ * TLSホップ情報
+ */
+export interface TLSHop {
+  from: string;
+  to: string;
+  timestamp?: string;
+  encrypted: boolean;
+  protocol?: string;
+  cipher?: string;
+  tlsVersion?: string;
+}
+
+/**
+ * TLS経路分析結果
+ */
+export interface TLSAnalysisResult {
+  hops: TLSHop[];
+  totalHops: number;
+  encryptedHops: number;
+  unencryptedHops: TLSHop[];
+  risk: 'safe' | 'warning' | 'danger';
+  summary: string;
+}
+
+/**
+ * DKIM検証結果
+ */
+export interface DKIMVerificationResult {
+  status: 'pass' | 'fail' | 'none' | 'permerror' | 'temperror';
+  selector?: string;
+  domain?: string;
+  algorithm?: string;
+  headers?: string[];
+  signatureValid: boolean;
+  bodyHashValid: boolean;
+  publicKeyFound: boolean;
+  details: {
+    signedHeaders?: string[];
+    bodyHashAlgorithm?: 'sha256' | 'sha1';
+    canonicalization?: {
+      header: 'relaxed' | 'simple';
+      body: 'relaxed' | 'simple';
+    };
+    keyType?: 'rsa' | 'ed25519';
+    keySize?: number;
+    issues: string[];
+  };
+  rawSignature?: string;
+  publicKey?: string;
+}
+
+/**
+ * ARCインスタンス
+ */
+export interface ARCInstance {
+  instance: number;
+  seal: {
+    status: 'pass' | 'fail' | 'none';
+    domain?: string;
+    selector?: string;
+  };
+  messageSignature: {
+    status: 'pass' | 'fail' | 'none';
+    domain?: string;
+    selector?: string;
+  };
+  authenticationResults: string;
+}
+
+/**
+ * ARC検証結果
+ */
+export interface ARCVerificationResult {
+  status: 'pass' | 'fail' | 'none';
+  chainValid: boolean;
+  instances: ARCInstance[];
+  issues: string[];
+}
+
+/**
+ * ドメイン分析結果
+ */
+export interface DomainAnalysisResult {
+  domain: string;
+  isSuspicious: boolean;
+  isIDN: boolean;
+  punycode?: string;
+  similarTo?: string;
+  similarity?: number;
+  techniques: string[];
+  scripts?: string[];
+  risk: 'low' | 'medium' | 'high';
+}
+
+/**
+ * ヘッダー整合性チェック結果
+ */
+export interface HeaderConsistencyResult {
+  returnPathMatch: boolean;
+  replyToMatch: boolean;
+  dateValid: boolean;
+  messageIdValid: boolean;
+  issues: string[];
+}
+
+/**
+ * セキュリティファクター
+ */
+export interface SecurityFactor {
+  category: string;
+  score: number;
+  maxScore: number;
+  weight: number;
+  issues: string[];
+  details?: Record<string, unknown>;
+}
+
+/**
+ * 総合セキュリティスコア
+ */
+export interface SecurityScoreResult {
+  score: number;
+  grade: 'A' | 'B' | 'C' | 'D' | 'F';
+  verdict: 'safe' | 'caution' | 'warning' | 'danger';
+  factors: SecurityFactor[];
+  summary: string;
+}
+
+/**
+ * 統合分析レスポンス
+ */
+export interface FullAnalysisResponse {
+  links: LinkAnalysisResult[];
+  attachments: AttachmentAnalysisResult[];
+  bec: BECIndicator[];
+  tls: TLSAnalysisResult;
+  dkim: DKIMVerificationResult;
+  arc: ARCVerificationResult;
+  domain: DomainAnalysisResult;
+  headerConsistency: HeaderConsistencyResult;
+  securityScore: SecurityScoreResult;
+  analyzedAt: string;
+  version: string;
+}
+
+/**
+ * 軽量分析レスポンス（DKIM/ARC検証なし）
+ */
+export interface QuickAnalysisResponse extends Omit<FullAnalysisResponse, 'dkim' | 'arc'> {
+  dkim: null;
+  arc: null;
+}
+
+/**
+ * 統合セキュリティ分析（フル）
+ * DKIM署名の再検証とARCチェーン検証を含む
+ */
+export async function analyzeEmailFull(request: AnalysisRequest): Promise<FullAnalysisResponse> {
+  return fetchJson<FullAnalysisResponse>(`${API_BASE_URL}/api/analyze`, {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
+
+/**
+ * 軽量セキュリティ分析（DKIM/ARC検証なし）
+ * フロントエンドでの即時表示用
+ */
+export async function analyzeEmailQuick(request: AnalysisRequest): Promise<QuickAnalysisResponse> {
+  return fetchJson<QuickAnalysisResponse>(`${API_BASE_URL}/api/analyze/quick`, {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
+
+/**
+ * DKIM署名検証のみ
+ */
+export async function verifyDKIMSignature(
+  headers: { key: string; value: string }[],
+  body?: string,
+  rawHeaders?: string
+): Promise<DKIMVerificationResult> {
+  return fetchJson<DKIMVerificationResult>(`${API_BASE_URL}/api/security/dkim`, {
+    method: 'POST',
+    body: JSON.stringify({ headers, body, rawHeaders }),
+  });
+}
+
+/**
+ * ARCチェーン検証のみ
+ */
+export async function verifyARCChain(
+  headers: { key: string; value: string }[]
+): Promise<ARCVerificationResult> {
+  return fetchJson<ARCVerificationResult>(`${API_BASE_URL}/api/security/arc`, {
+    method: 'POST',
+    body: JSON.stringify({ headers }),
+  });
+}
+
+// ========================================
 // 管理画面拡張API
 // ========================================
 
