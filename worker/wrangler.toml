@@ -6,7 +6,7 @@ compatibility_date = "2024-01-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "eml-viewer-db"
-database_id = "local"  # 本番環境では実際のIDに置き換える
+database_id = "0c928591-6aaf-43b6-8fcf-bd961f987f4b"
 
 # R2バケット（ローカル開発時は自動作成）
 [[r2_buckets]]

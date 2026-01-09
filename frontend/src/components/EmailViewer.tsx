@@ -29,9 +29,14 @@ export function EmailViewer({ email }: EmailViewerProps) {
   const downloadAttachment = (attachment: {
     filename: string;
     mimeType: string;
-    content: ArrayBuffer;
+    content: ArrayBuffer | string;
   }) => {
-    const blob = new Blob([attachment.content], { type: attachment.mimeType });
+    // string の場合は ArrayBuffer に変換
+    const content =
+      typeof attachment.content === 'string'
+        ? new TextEncoder().encode(attachment.content)
+        : attachment.content;
+    const blob = new Blob([content], { type: attachment.mimeType });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
