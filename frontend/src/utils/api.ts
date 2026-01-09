@@ -266,3 +266,24 @@ export async function downloadEml(id: string): Promise<Blob> {
 
   return response.blob();
 }
+
+export interface PresignedUrlResponse {
+  url: string;
+  expiresIn: number;
+  expiresAt: string;
+}
+
+/**
+ * 署名付きダウンロードURLを生成（認証必須）
+ * @param id レコードID
+ * @param expiresInMinutes 有効期限（分）デフォルト60分
+ */
+export async function getPresignedUrl(
+  id: string,
+  expiresInMinutes = 60
+): Promise<PresignedUrlResponse> {
+  return fetchJsonWithAuth<PresignedUrlResponse>(
+    `${API_BASE_URL}/api/admin/records/${id}/presign?expires=${expiresInMinutes}`,
+    { method: 'POST' }
+  );
+}
