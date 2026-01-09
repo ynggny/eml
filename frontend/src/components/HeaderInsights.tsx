@@ -128,7 +128,7 @@ export function HeaderInsights({ headers, fromAddress }: HeaderInsightsProps) {
   // X-Originating-IP
   const originatingIp = getHeader('x-originating-ip');
   if (originatingIp) {
-    const cleanIp = originatingIp.replace(/[\[\]]/g, '');
+    const cleanIp = originatingIp.replace(/[[\]]/g, '');
     insights.push({
       label: '送信元IP',
       value: cleanIp,

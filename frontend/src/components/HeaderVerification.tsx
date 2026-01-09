@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import type { Header } from '../utils/emlParser';
 
 interface HeaderVerificationProps {
@@ -34,7 +34,7 @@ export function HeaderVerification({ headers }: HeaderVerificationProps) {
     // X-Originating-IP
     const originatingIp = getHeader('x-originating-ip');
     if (originatingIp) {
-      const cleanIp = originatingIp.replace(/[\[\]]/g, '').trim();
+      const cleanIp = originatingIp.replace(/[[\]]/g, '').trim();
       if (cleanIp && !ips.includes(cleanIp)) {
         ips.push(cleanIp);
       }
@@ -116,11 +116,6 @@ export function HeaderVerification({ headers }: HeaderVerificationProps) {
     setResults([...newResults]);
     setIsLoading(false);
   };
-
-  // ヘッダーが変わったらリセット
-  useEffect(() => {
-    setResults([]);
-  }, [headers]);
 
   const hasVerifiableData = extractIps().length > 0;
 

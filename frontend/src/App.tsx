@@ -190,7 +190,10 @@ function App() {
                 headers={selectedEmail.email.headers}
                 fromAddress={selectedEmail.email.from?.address ?? null}
               />
-              <HeaderVerification headers={selectedEmail.email.headers} />
+              <HeaderVerification
+                key={selectedIndex}
+                headers={selectedEmail.email.headers}
+              />
             </div>
 
             {/* メール本体 */}
