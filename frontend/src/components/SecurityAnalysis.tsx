@@ -8,7 +8,7 @@
  * - 総合セキュリティスコア
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { ParsedEmail, Header } from '../utils/emlParser';
 import {
   detectLookalikeDomain,
@@ -24,6 +24,7 @@ import {
   type BECIndicator,
   type SecurityScore,
 } from '../utils/securityAnalysis';
+import { analyzeConfusableDomain, type ConfusableResult } from '../utils/api';
 import { SecurityBadge } from './SecurityBadge';
 import { QRCodeShare } from './QRCodeShare';
 
@@ -122,6 +123,84 @@ function LookalikeDomainAlert({ result }: { result: LookalikeResult }) {
             <span className="font-mono bg-black/30 px-1 rounded">{result.similarTo}</span>
             {' '}に類似しています（類似度: {result.similarity}%）
           </p>
+          <div className="flex flex-wrap gap-1 mt-2">
+            {result.techniques.map((tech, i) => (
+              <span key={i} className="text-xs px-2 py-0.5 bg-black/30 rounded">
+                {tech}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ========================================
+// ホモグラフ分析結果表示（Worker API版）
+// ========================================
+
+function ConfusableDomainAlert({ result }: { result: ConfusableResult }) {
+  const getRiskColor = (risk: ConfusableResult['risk']) => {
+    switch (risk) {
+      case 'high': return 'bg-red-900/50 border-red-700 text-red-300';
+      case 'medium': return 'bg-yellow-900/50 border-yellow-700 text-yellow-300';
+      case 'low': return 'bg-orange-900/50 border-orange-700 text-orange-300';
+      case 'none': return 'bg-green-900/50 border-green-700 text-green-300';
+    }
+  };
+
+  if (result.risk === 'none') {
+    return null;
+  }
+
+  return (
+    <div className={`p-4 rounded-lg border ${getRiskColor(result.risk)}`}>
+      <div className="flex items-start gap-3">
+        <svg className="w-6 h-6 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <div>
+          <h4 className="font-semibold">偽装ドメインの疑い（詳細分析）</h4>
+          <p className="text-sm mt-1">
+            <span className="font-mono bg-black/30 px-1 rounded">{result.originalDomain}</span>
+            {result.matchedDomain && (
+              <>
+                {' '}は{' '}
+                <span className="font-mono bg-black/30 px-1 rounded">{result.matchedDomain}</span>
+                {' '}に類似しています（類似度: {result.similarity}%）
+              </>
+            )}
+          </p>
+
+          {/* IDN情報 */}
+          {result.isIDN && (
+            <div className="mt-2 p-2 bg-black/20 rounded text-xs">
+              <span className="text-yellow-400">⚠ 国際化ドメイン名（IDN）</span>
+              {result.punycode && (
+                <p className="mt-1 font-mono text-gray-400">Punycode: {result.punycode}</p>
+              )}
+            </div>
+          )}
+
+          {/* 検出された偽装文字 */}
+          {result.confusableChars.length > 0 && (
+            <div className="mt-2">
+              <p className="text-xs text-gray-400 mb-1">検出された偽装文字:</p>
+              <div className="flex flex-wrap gap-2">
+                {result.confusableChars.map((char, i) => (
+                  <div key={i} className="text-xs px-2 py-1 bg-black/30 rounded font-mono">
+                    <span className="text-red-300">{char.original}</span>
+                    <span className="text-gray-500 mx-1">→</span>
+                    <span className="text-green-300">{char.normalized}</span>
+                    <span className="text-gray-500 ml-1">({char.script})</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 検出テクニック */}
           <div className="flex flex-wrap gap-1 mt-2">
             {result.techniques.map((tech, i) => (
               <span key={i} className="text-xs px-2 py-0.5 bg-black/30 rounded">
@@ -468,16 +547,54 @@ function TLSPathSection({ headers }: { headers: Header[] }) {
 // ========================================
 
 export function SecurityAnalysis({ email, authResults, fromDomain, hash }: SecurityAnalysisProps) {
-  // 各種分析を実行
+  // Worker API結果のstate（初期値はnullで、API呼び出し完了時に結果がセットされる）
+  const [confusableResult, setConfusableResult] = useState<ConfusableResult | null>(null);
+  // APIリクエスト中かどうか（domain変更時はtrueから開始）
+  const [apiRequestId, setApiRequestId] = useState(0);
+  const confusableLoading = fromDomain !== null && confusableResult === null && apiRequestId > 0;
+
+  // ローカル分析（フォールバック用、即時実行）
   const lookalike = fromDomain ? detectLookalikeDomain(fromDomain) : null;
   const links = analyzeAllLinks(email);
   const attachments = analyzeAllAttachments(email.attachments);
   const becIndicators = detectBECPatterns(email);
   const securityScore = calculateSecurityScore(email, authResults, fromDomain);
 
-  // 問題がない場合のチェック
+  // Worker APIでの詳細分析
+  useEffect(() => {
+    if (!fromDomain) return;
+
+    // リクエストIDをインクリメントして新しいリクエストを識別
+    const currentRequestId = apiRequestId + 1;
+    setApiRequestId(currentRequestId);
+    setConfusableResult(null);
+
+    let cancelled = false;
+
+    analyzeConfusableDomain(fromDomain)
+      .then(result => {
+        if (!cancelled) {
+          setConfusableResult(result);
+        }
+      })
+      .catch(err => {
+        console.warn('Confusable API error, using local fallback:', err);
+        // APIエラー時は結果をnullのままにしてローカルフォールバックを使用
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromDomain]);
+
+  // 問題がない場合のチェック（API結果優先）
+  const hasConfusableIssue = confusableResult
+    ? confusableResult.risk !== 'none'
+    : lookalike !== null;
+
   const hasIssues =
-    lookalike !== null ||
+    hasConfusableIssue ||
     links.some(l => l.risk !== 'safe') ||
     attachments.some(a => a.risk !== 'safe') ||
     becIndicators.length > 0;
@@ -506,8 +623,15 @@ export function SecurityAnalysis({ email, authResults, fromDomain, hash }: Secur
         </div>
       </div>
 
-      {/* Lookalike Domain警告 */}
-      {lookalike && <LookalikeDomainAlert result={lookalike} />}
+      {/* ホモグラフ/偽装ドメイン警告 */}
+      {confusableLoading && (
+        <div className="p-4 bg-gray-800 rounded-lg animate-pulse">
+          <div className="h-4 bg-gray-700 rounded w-1/3 mb-2"></div>
+          <div className="h-3 bg-gray-700 rounded w-2/3"></div>
+        </div>
+      )}
+      {!confusableLoading && confusableResult && <ConfusableDomainAlert result={confusableResult} />}
+      {!confusableLoading && !confusableResult && lookalike && <LookalikeDomainAlert result={lookalike} />}
 
       {/* 詐欺パターン */}
       <BECIndicatorSection indicators={becIndicators} />
