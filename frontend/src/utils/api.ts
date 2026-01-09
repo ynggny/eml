@@ -94,9 +94,8 @@ async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
 
 async function fetchJsonWithAuth<T>(url: string, options?: RequestInit): Promise<T> {
   const auth = getStoredAuth();
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options?.headers,
   };
 
   if (auth) {
@@ -105,7 +104,10 @@ async function fetchJsonWithAuth<T>(url: string, options?: RequestInit): Promise
 
   const response = await fetch(url, {
     ...options,
-    headers,
+    headers: {
+      ...headers,
+      ...options?.headers,
+    },
   });
 
   const data = await response.json();
