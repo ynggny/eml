@@ -276,6 +276,27 @@ npx wrangler pages deploy frontend/dist
 npx wrangler deploy
 ```
 
+## D1マイグレーション
+
+```bash
+cd worker
+
+# マイグレーションファイルの作成
+npx wrangler d1 migrations create eml-viewer-db "マイグレーション名"
+
+# 未適用マイグレーションの確認
+npx wrangler d1 migrations list eml-viewer-db --remote
+
+# ローカルDBに適用
+npx wrangler d1 migrations apply eml-viewer-db --local
+
+# 本番DBに適用（要: CLOUDFLARE_API_TOKEN）
+npx wrangler d1 migrations apply eml-viewer-db --remote
+```
+
+**注意**: 本番への適用には環境変数 `CLOUDFLARE_API_TOKEN` が必要です。
+トークンは https://dash.cloudflare.com/profile/api-tokens で作成できます。
+
 ## 参考ライブラリ
 
 - **postal-mime**: EMLパース（ブラウザ対応）
