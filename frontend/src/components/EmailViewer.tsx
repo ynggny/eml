@@ -40,6 +40,7 @@ export function EmailViewer({ email }: EmailViewerProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('html');
   const [headerViewMode, setHeaderViewMode] = useState<HeaderViewMode>('parsed');
   const [hoveredHeader, setHoveredHeader] = useState<string | null>(null);
+  const [headerSearch, setHeaderSearch] = useState('');
 
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return 'N/A';
@@ -186,61 +187,118 @@ export function EmailViewer({ email }: EmailViewerProps) {
 
         {viewMode === 'headers' && (
           <div className="space-y-4">
-            {/* 整形/Raw切り替え */}
-            <div className="flex gap-2 text-xs">
-              <button
-                onClick={() => setHeaderViewMode('parsed')}
-                className={`px-3 py-1 rounded ${
-                  headerViewMode === 'parsed'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
-              >
-                整形
-              </button>
-              <button
-                onClick={() => setHeaderViewMode('raw')}
-                className={`px-3 py-1 rounded ${
-                  headerViewMode === 'raw'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
-              >
-                Raw
-              </button>
+            {/* 検索・切り替えバー */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* 検索入力 */}
+              <div className="relative flex-1 min-w-[200px]">
+                <input
+                  type="text"
+                  value={headerSearch}
+                  onChange={(e) => setHeaderSearch(e.target.value)}
+                  placeholder="ヘッダーを検索..."
+                  className="w-full px-3 py-1.5 pl-8 text-xs bg-gray-900 border border-gray-700 rounded focus:outline-none focus:border-blue-500 text-gray-200 placeholder-gray-500"
+                />
+                <svg
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                {headerSearch && (
+                  <button
+                    onClick={() => setHeaderSearch('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+
+              {/* 整形/Raw切り替え */}
+              <div className="flex gap-1 text-xs">
+                <button
+                  onClick={() => setHeaderViewMode('parsed')}
+                  className={`px-3 py-1.5 rounded ${
+                    headerViewMode === 'parsed'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  整形
+                </button>
+                <button
+                  onClick={() => setHeaderViewMode('raw')}
+                  className={`px-3 py-1.5 rounded ${
+                    headerViewMode === 'raw'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  Raw
+                </button>
+              </div>
             </div>
 
             {headerViewMode === 'parsed' ? (
               <div className="space-y-1 text-xs font-mono">
-                {email.headers.map((h, i) => {
-                  const headerKey = h.key.toLowerCase();
-                  const description = HEADER_DESCRIPTIONS[headerKey];
-                  return (
-                    <div
-                      key={i}
-                      className="relative flex gap-2 group"
-                      onMouseEnter={() => setHoveredHeader(`${headerKey}-${i}`)}
-                      onMouseLeave={() => setHoveredHeader(null)}
-                    >
-                      <span
-                        className={`shrink-0 ${
-                          description
-                            ? 'text-blue-400 cursor-help border-b border-dashed border-blue-400/50'
-                            : 'text-blue-400'
+                {email.headers
+                  .filter((h) => {
+                    if (!headerSearch) return true;
+                    const searchLower = headerSearch.toLowerCase();
+                    return (
+                      h.key.toLowerCase().includes(searchLower) ||
+                      h.value.toLowerCase().includes(searchLower)
+                    );
+                  })
+                  .map((h, i) => {
+                    const headerKey = h.key.toLowerCase();
+                    const description = HEADER_DESCRIPTIONS[headerKey];
+                    const searchLower = headerSearch.toLowerCase();
+                    const isKeyMatch = headerSearch && h.key.toLowerCase().includes(searchLower);
+                    const isValueMatch = headerSearch && h.value.toLowerCase().includes(searchLower);
+
+                    return (
+                      <div
+                        key={i}
+                        className={`relative flex gap-2 group p-1 rounded ${
+                          isKeyMatch || isValueMatch ? 'bg-yellow-900/30' : ''
                         }`}
+                        onMouseEnter={() => setHoveredHeader(`${headerKey}-${i}`)}
+                        onMouseLeave={() => setHoveredHeader(null)}
                       >
-                        {h.key}:
-                      </span>
-                      <span className="text-gray-300 break-all">{h.value}</span>
-                      {/* ツールチップ */}
-                      {description && hoveredHeader === `${headerKey}-${i}` && (
-                        <div className="absolute left-0 bottom-full mb-1 z-10 max-w-md p-2 bg-gray-900 border border-gray-600 rounded shadow-lg text-xs text-gray-200">
-                          {description}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                        <span
+                          className={`shrink-0 ${
+                            description
+                              ? 'text-blue-400 cursor-help border-b border-dashed border-blue-400/50'
+                              : 'text-blue-400'
+                          } ${isKeyMatch ? 'bg-yellow-500/30 px-0.5 rounded' : ''}`}
+                        >
+                          {h.key}:
+                        </span>
+                        <span className={`text-gray-300 break-all ${isValueMatch ? 'bg-yellow-500/30 px-0.5 rounded' : ''}`}>
+                          {h.value}
+                        </span>
+                        {/* ツールチップ */}
+                        {description && hoveredHeader === `${headerKey}-${i}` && (
+                          <div className="absolute left-0 bottom-full mb-1 z-10 max-w-md p-2 bg-gray-900 border border-gray-600 rounded shadow-lg text-xs text-gray-200">
+                            {description}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                {headerSearch && email.headers.filter((h) => {
+                  const searchLower = headerSearch.toLowerCase();
+                  return h.key.toLowerCase().includes(searchLower) || h.value.toLowerCase().includes(searchLower);
+                }).length === 0 && (
+                  <p className="text-gray-500 text-center py-4">
+                    "{headerSearch}" に一致するヘッダーが見つかりませんでした
+                  </p>
+                )}
               </div>
             ) : (
               <pre className="text-xs text-gray-300 whitespace-pre-wrap font-mono bg-gray-900 p-3 rounded overflow-x-auto">
