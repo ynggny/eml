@@ -290,6 +290,76 @@ npx wrangler deploy
 
 ---
 
+## SEO対応方針
+
+### 基本情報
+- **サイトURL**: https://eml.ynggny.com （仮）
+- **言語**: 日本語（`lang="ja"`）
+- **ターゲット地域**: 日本
+
+### 実装項目
+
+#### 1. メタタグ（index.html）
+| タグ | 内容 |
+|------|------|
+| title | EML Viewer - メール検証・閲覧ツール |
+| description | EMLファイルの安全な検証・閲覧ツール。DKIM/SPF/DMARC認証確認、送信元検証、改ざん検知に対応。 |
+| keywords | EML,メール検証,DKIM,SPF,DMARC,メールヘッダー,フィッシング対策 |
+| canonical | https://eml.ynggny.com/ |
+
+#### 2. OGP（Open Graph Protocol）
+| プロパティ | 内容 |
+|-----------|------|
+| og:title | EML Viewer - メール検証・閲覧ツール |
+| og:description | EMLファイルの安全な検証・閲覧ツール |
+| og:type | website |
+| og:url | https://eml.ynggny.com/ |
+| og:image | https://eml.ynggny.com/ogp.png |
+| og:locale | ja_JP |
+
+#### 3. Twitter Card
+| プロパティ | 内容 |
+|-----------|------|
+| twitter:card | summary_large_image |
+| twitter:title | EML Viewer - メール検証・閲覧ツール |
+| twitter:description | EMLファイルの安全な検証・閲覧ツール |
+| twitter:image | https://eml.ynggny.com/ogp.png |
+
+#### 4. 構造化データ（JSON-LD）
+- Schema.org `WebApplication` スキーマを使用
+- アプリケーション情報、機能、対象ユーザーを記述
+
+#### 5. 静的ファイル（frontend/public/）
+| ファイル | 用途 |
+|---------|------|
+| robots.txt | クローラー制御、サイトマップ指定 |
+| sitemap.xml | ページ一覧（SPA単一ページ） |
+| manifest.json | PWA対応、アプリ情報 |
+| _headers | セキュリティヘッダー、キャッシュ設定 |
+| ogp.png | SNS共有用画像（1200x630px） |
+| favicon.ico | ファビコン |
+
+#### 6. セキュリティヘッダー（_headers）
+```
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 1; mode=block
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: geolocation=(), microphone=(), camera=()
+```
+
+### Core Web Vitals目標
+| 指標 | 目標値 |
+|------|--------|
+| LCP (Largest Contentful Paint) | < 2.5s |
+| INP (Interaction to Next Paint) | < 200ms |
+| CLS (Cumulative Layout Shift) | < 0.1 |
+
+### 更新履歴
+- 2026-01-09: SEO対応方針を策定
+
+---
+
 ## 開発メモ
 
 （ここに開発中のメモを追記していく）

@@ -1,0 +1,59 @@
+{
+  "name": "EML Viewer - メール検証・閲覧ツール",
+  "short_name": "EML Viewer",
+  "description": "EMLファイルの安全な検証・閲覧ツール。DKIM/SPF/DMARC認証確認、送信元検証、改ざん検知に対応。",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#1e293b",
+  "orientation": "any",
+  "scope": "/",
+  "lang": "ja",
+  "categories": ["security", "utilities", "productivity"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon-16x16.png",
+      "type": "image/png",
+      "sizes": "16x16"
+    },
+    {
+      "src": "/favicon-32x32.png",
+      "type": "image/png",
+      "sizes": "32x32"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "type": "image/png",
+      "sizes": "180x180"
+    },
+    {
+      "src": "/icon-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/ogp.png",
+      "type": "image/png",
+      "sizes": "1200x630",
+      "form_factor": "wide",
+      "label": "EML Viewer メイン画面"
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
+}
