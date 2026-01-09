@@ -2,6 +2,11 @@ name = "eml-viewer-api"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
 
+# 管理画面認証
+[vars]
+ADMIN_USERNAME = "yng"
+ADMIN_PASSWORD_HASH = "caae11c578829026b073bf322d8f4ae868146fe224a19c60a492c6c23ebab160"
+
 # D1データベース（ローカル開発時は自動作成）
 [[d1_databases]]
 binding = "DB"
