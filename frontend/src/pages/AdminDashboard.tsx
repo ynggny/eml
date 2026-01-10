@@ -13,6 +13,7 @@ import {
   exportRecords,
   searchByHash,
   verifyIntegrity,
+  exportStringAsFile,
   ApiError,
   type StatsResponse,
   type EmlRecord,
@@ -184,9 +185,13 @@ export function AdminDashboard() {
         domain: searchOptions.domain,
       });
 
-      // CSV形式でダウンロード
+      // CSV形式でWorker API経由でダウンロード
       const csv = convertToCSV(data.records);
-      downloadFile(csv, `eml-export-${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv');
+      await exportStringAsFile(
+        csv,
+        `eml-export-${new Date().toISOString().slice(0, 10)}.csv`,
+        'text/csv; charset=utf-8'
+      );
     } catch (err) {
       alert(err instanceof Error ? err.message : 'エクスポートに失敗しました');
     }
@@ -1457,18 +1462,6 @@ function convertToCSV(records: EmlRecord[]): string {
   ];
 
   return csvRows.join('\n');
-}
-
-function downloadFile(content: string, filename: string, mimeType: string) {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
 }
 
 // ============================================================================
