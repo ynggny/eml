@@ -719,42 +719,42 @@ export function calculateSecurityScore(
 ): SecurityScore {
   const factors: SecurityScore['factors'] = [];
 
-  // 1. 認証結果（30点満点）
-  let authScore = 30;
+  // 1. 認証結果（25点満点）
+  let authScore = 25;
   const authIssues: string[] = [];
   if (!authResults) {
     authScore = 0;
     authIssues.push('認証ヘッダーなし');
   } else {
     if (authResults.spf !== 'pass') {
-      authScore -= 10;
+      authScore -= 8;
       authIssues.push(`SPF: ${authResults.spf ?? 'none'}`);
     }
     if (authResults.dkim !== 'pass') {
-      authScore -= 10;
+      authScore -= 9;
       authIssues.push(`DKIM: ${authResults.dkim ?? 'none'}`);
     }
     if (authResults.dmarc !== 'pass') {
-      authScore -= 10;
+      authScore -= 8;
       authIssues.push(`DMARC: ${authResults.dmarc ?? 'none'}`);
     }
   }
-  factors.push({ category: 'メール認証', score: Math.max(0, authScore), maxScore: 30, issues: authIssues });
+  factors.push({ category: 'メール認証', score: Math.max(0, authScore), maxScore: 25, issues: authIssues });
 
-  // 2. ドメイン信頼性（20点満点）
-  let domainScore = 20;
+  // 2. ドメイン信頼性（15点満点）
+  let domainScore = 15;
   const domainIssues: string[] = [];
   if (fromDomain) {
     const lookalike = detectLookalikeDomain(fromDomain);
     if (lookalike) {
-      domainScore -= lookalike.risk === 'high' ? 20 : lookalike.risk === 'medium' ? 15 : 10;
+      domainScore -= lookalike.risk === 'high' ? 15 : lookalike.risk === 'medium' ? 10 : 5;
       domainIssues.push(`偽装ドメインの疑い（${lookalike.similarTo}に類似）`);
     }
   } else {
     domainScore = 0;
     domainIssues.push('送信元ドメイン不明');
   }
-  factors.push({ category: 'ドメイン', score: Math.max(0, domainScore), maxScore: 20, issues: domainIssues });
+  factors.push({ category: 'ドメイン', score: Math.max(0, domainScore), maxScore: 15, issues: domainIssues });
 
   // 3. リンク安全性（20点満点）
   const links = analyzeAllLinks(email);
@@ -803,6 +803,28 @@ export function calculateSecurityScore(
     becIssues.push(`中リスクパターン: ${mediumBEC}件`);
   }
   factors.push({ category: '詐欺パターン', score: Math.max(0, becScore), maxScore: 15, issues: becIssues });
+
+  // 6. TLS経路（10点満点）
+  const tlsHops = analyzeTLSPath(email.headers);
+  let tlsScore = 10;
+  const tlsIssues: string[] = [];
+  if (tlsHops.length > 0) {
+    const summary = getTLSSummary(tlsHops);
+    if (summary.unencryptedHops.length > 0) {
+      const unencryptedRatio = summary.unencryptedHops.length / summary.totalHops;
+      if (unencryptedRatio > 0.5) {
+        tlsScore = 0;
+        tlsIssues.push('半数以上が非暗号化');
+      } else if (unencryptedRatio > 0) {
+        tlsScore -= Math.min(8, summary.unencryptedHops.length * 4);
+        tlsIssues.push(`非暗号化経路: ${summary.unencryptedHops.length}件`);
+      }
+    }
+  } else {
+    // Receivedヘッダーがない場合は評価不能（減点なし）
+    tlsScore = 10;
+  }
+  factors.push({ category: 'TLS経路', score: Math.max(0, tlsScore), maxScore: 10, issues: tlsIssues });
 
   // 総合スコア計算
   const totalScore = factors.reduce((sum, f) => sum + f.score, 0);

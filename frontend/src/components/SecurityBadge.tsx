@@ -119,13 +119,13 @@ export function SecurityBadge({ score, fromDomain, subject, hash }: SecurityBadg
 
     // 認証結果バー
     y = 210;
-    const factors = score.factors.slice(0, 5);
-    const barWidth = 80;
+    const factors = score.factors.slice(0, 6);
+    const barWidth = 85;
     const barHeight = 8;
-    const gap = 10;
+    const gap = 6;
 
     factors.forEach((factor, i) => {
-      const barX = 20 + (barWidth + gap) * i;
+      const barX = 16 + (barWidth + gap) * i;
 
       // ラベル
       ctx.fillStyle = '#9CA3AF';
