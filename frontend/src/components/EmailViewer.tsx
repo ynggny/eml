@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import type { ParsedEmail } from '../utils/emlParser';
+import { exportFile } from '../utils/api';
 
 interface EmailViewerProps {
   email: ParsedEmail;
@@ -58,24 +59,48 @@ export function EmailViewer({ email }: EmailViewerProps) {
     return addr.name ? `${addr.name} <${addr.address}>` : addr.address;
   };
 
-  const downloadAttachment = (attachment: {
+  const [downloadingAttachment, setDownloadingAttachment] = useState<string | null>(null);
+
+  const downloadAttachment = useCallback(async (attachment: {
     filename: string;
     mimeType: string;
     content: ArrayBuffer | string;
   }) => {
-    // string の場合は ArrayBuffer に変換
-    const content =
-      typeof attachment.content === 'string'
-        ? new TextEncoder().encode(attachment.content)
-        : attachment.content;
-    const blob = new Blob([content], { type: attachment.mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = attachment.filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+    setDownloadingAttachment(attachment.filename);
+    try {
+      // string の場合は ArrayBuffer に変換
+      const content =
+        typeof attachment.content === 'string'
+          ? new TextEncoder().encode(attachment.content).buffer
+          : attachment.content;
+
+      // Worker APIを使用してエクスポート
+      // テキスト系ファイルは文字コード変換を有効化
+      const isTextFile = attachment.mimeType.startsWith('text/') ||
+        attachment.mimeType === 'application/json' ||
+        attachment.mimeType === 'application/xml';
+
+      await exportFile(content, attachment.filename, attachment.mimeType, {
+        convertEncoding: isTextFile,
+      });
+    } catch (error) {
+      console.error('Download failed:', error);
+      // フォールバック: Worker APIが利用できない場合はクライアント側でダウンロード
+      const content =
+        typeof attachment.content === 'string'
+          ? new TextEncoder().encode(attachment.content)
+          : attachment.content;
+      const blob = new Blob([content], { type: attachment.mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = attachment.filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setDownloadingAttachment(null);
+    }
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -107,28 +132,58 @@ export function EmailViewer({ email }: EmailViewerProps) {
             添付ファイル ({email.attachments.length})
           </h3>
           <div className="flex flex-wrap gap-2">
-            {email.attachments.map((att, i) => (
-              <button
-                key={i}
-                onClick={() => downloadAttachment(att)}
-                className="flex items-center gap-2 px-3 py-2 bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors text-sm"
-              >
-                <svg
-                  className="w-4 h-4 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+            {email.attachments.map((att, i) => {
+              const isDownloading = downloadingAttachment === att.filename;
+              return (
+                <button
+                  key={i}
+                  onClick={() => downloadAttachment(att)}
+                  disabled={isDownloading}
+                  className={`flex items-center gap-2 px-3 py-2 bg-gray-700 rounded-lg transition-colors text-sm ${
+                    isDownloading
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'hover:bg-gray-600'
+                  }`}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-                <span>{att.filename}</span>
-              </button>
-            ))}
+                  {isDownloading ? (
+                    <svg
+                      className="w-4 h-4 text-gray-400 animate-spin"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                  ) : (
+                    <svg
+                      className="w-4 h-4 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
+                    </svg>
+                  )}
+                  <span>{att.filename}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

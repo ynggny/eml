@@ -27,6 +27,21 @@ import {
   verifyARCChain,
   type AnalysisRequest,
 } from './analysis';
+import {
+  createExportResponse,
+  processExport,
+  getSupportedEncodings,
+  detectEncoding,
+  generateExportToken,
+  verifyExportToken,
+  generateExportId,
+  storeExportData,
+  getExportData,
+  deleteExportData,
+  type ExportRequest,
+  type PrepareExportRequest,
+  type PreparedExport,
+} from './export';
 
 interface Env {
   DB: D1Database;
@@ -184,6 +199,118 @@ export default {
       // ヘルスチェック
       if (path === '/api/health') {
         return jsonResponse({ status: 'ok', timestamp: new Date().toISOString() });
+      }
+
+      // GET /api/export/encodings - サポートされるエンコーディング一覧
+      if (path === '/api/export/encodings' && request.method === 'GET') {
+        return jsonResponse({
+          encodings: getSupportedEncodings(),
+        });
+      }
+
+      // POST /api/export/detect - 文字コード自動検出
+      if (path === '/api/export/detect' && request.method === 'POST') {
+        const body = await request.json() as { content: string };
+        if (!body.content) {
+          return errorResponse('content is required');
+        }
+        // Base64デコード
+        const binaryStr = atob(body.content);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) {
+          bytes[i] = binaryStr.charCodeAt(i);
+        }
+        const encoding = detectEncoding(bytes.buffer);
+        return jsonResponse({ encoding });
+      }
+
+      // POST /api/export/prepare - エクスポート準備（トークン発行）
+      if (path === '/api/export/prepare' && request.method === 'POST') {
+        const body: PrepareExportRequest = await request.json();
+        if (!body.content || !body.filename || !body.mimeType) {
+          return errorResponse('content, filename, and mimeType are required');
+        }
+
+        // 文字コード自動検出
+        const binaryStr = atob(body.content);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) {
+          bytes[i] = binaryStr.charCodeAt(i);
+        }
+        const detectedEncoding = detectEncoding(bytes.buffer);
+
+        // エクスポートID生成
+        const exportId = generateExportId();
+        const expiresIn = body.expiresIn ?? 300; // デフォルト5分
+        const now = Math.floor(Date.now() / 1000);
+
+        // R2に一時保存
+        const exportData: PreparedExport = {
+          content: body.content,
+          filename: body.filename,
+          mimeType: body.mimeType,
+          sourceEncoding: body.sourceEncoding ?? detectedEncoding,
+          convertEncoding: body.convertEncoding,
+          createdAt: now,
+          expiresAt: now + expiresIn,
+        };
+        await storeExportData(env.BUCKET, exportId, exportData);
+
+        // 署名付きトークン生成
+        const token = await generateExportToken(exportId, env.ADMIN_PASSWORD_HASH, expiresIn);
+        const downloadUrl = `${url.origin}/api/export/download/${token}`;
+
+        return jsonResponse({
+          url: downloadUrl,
+          token,
+          expiresIn,
+          expiresAt: new Date((now + expiresIn) * 1000).toISOString(),
+          detectedEncoding,
+        });
+      }
+
+      // GET /api/export/download/:token - トークンでファイルダウンロード
+      const exportDownloadMatch = path.match(/^\/api\/export\/download\/(.+)$/);
+      if (exportDownloadMatch && request.method === 'GET') {
+        const [, token] = exportDownloadMatch;
+
+        // トークン検証
+        const exportId = await verifyExportToken(token, env.ADMIN_PASSWORD_HASH);
+        if (!exportId) {
+          return errorResponse('Invalid or expired download link', 403);
+        }
+
+        // エクスポートデータ取得
+        const exportData = await getExportData(env.BUCKET, exportId);
+        if (!exportData) {
+          return errorResponse('Export data not found or expired', 404);
+        }
+
+        // ダウンロード後にデータを削除（ワンタイム使用）
+        await deleteExportData(env.BUCKET, exportId);
+
+        // ダウンロードレスポンス生成
+        return createExportResponse({
+          content: exportData.content,
+          filename: exportData.filename,
+          mimeType: exportData.mimeType,
+          sourceEncoding: exportData.sourceEncoding,
+          convertEncoding: exportData.convertEncoding,
+        }, corsHeaders());
+      }
+
+      // POST /api/export/convert - 文字コード変換（JSON応答）
+      if (path === '/api/export/convert' && request.method === 'POST') {
+        const body: ExportRequest = await request.json();
+        if (!body.content || !body.filename || !body.mimeType) {
+          return errorResponse('content, filename, and mimeType are required');
+        }
+
+        const result = processExport({
+          ...body,
+          convertEncoding: true, // 強制変換
+        });
+        return jsonResponse(result);
       }
 
       // GET /api/download/:token - 公開ダウンロード（トークン認証）
