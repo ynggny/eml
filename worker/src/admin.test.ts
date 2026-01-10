@@ -54,7 +54,8 @@ function createD1Adapter(db: Database.Database): D1Database {
     async batch() { return []; },
     async dump() { return new ArrayBuffer(0); },
     async exec() { return { count: 0, duration: 0 }; },
-  } as D1Database;
+    withSession() { return this; },
+  } as unknown as D1Database;
 }
 
 function createTestEnv(db: Database.Database) {
@@ -397,7 +398,7 @@ describe('admin - 実際のSQLiteを使用したテスト', () => {
         { id: 'rec-001', hash_sha256: 'hash1', from_domain: 'example.com' },
         { id: 'rec-002', hash_sha256: 'hash2', from_domain: 'test.org' },
         { id: 'rec-003', hash_sha256: 'hash3', from_domain: 'example.com' },
-        { id: 'rec-004', hash_sha256: 'hash4', from_domain: null },
+        { id: 'rec-004', hash_sha256: 'hash4', from_domain: undefined },
       ]);
     });
 
