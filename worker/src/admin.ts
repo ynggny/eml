@@ -4,6 +4,18 @@
 
 import type { EmlRecord } from './storage';
 
+/**
+ * SQLite LIKE検索用の特殊文字をエスケープ
+ * %と_はLIKEパターンでワイルドカードとして解釈されるため、
+ * エスケープしないと「LIKE or GLOB pattern too complex」エラーが発生する可能性がある
+ */
+export function escapeLikePattern(value: string): string {
+  return value
+    .replace(/\\/g, '\\\\')  // バックスラッシュを先にエスケープ
+    .replace(/%/g, '\\%')    // % → \%
+    .replace(/_/g, '\\_');   // _ → \_
+}
+
 interface Env {
   DB: D1Database;
   BUCKET: R2Bucket;
@@ -86,10 +98,10 @@ export async function listRecords(
   const conditions: string[] = [];
   const params: unknown[] = [];
 
-  // テキスト検索
+  // テキスト検索（特殊文字をエスケープしてLIKE pattern too complexエラーを防ぐ）
   if (options.search) {
-    conditions.push('(from_domain LIKE ? OR subject_preview LIKE ? OR id LIKE ? OR hash_sha256 LIKE ?)');
-    const searchPattern = `%${options.search}%`;
+    conditions.push("(from_domain LIKE ? ESCAPE '\\' OR subject_preview LIKE ? ESCAPE '\\' OR id LIKE ? ESCAPE '\\' OR hash_sha256 LIKE ? ESCAPE '\\')");
+    const searchPattern = `%${escapeLikePattern(options.search)}%`;
     params.push(searchPattern, searchPattern, searchPattern, searchPattern);
   }
 
@@ -109,10 +121,10 @@ export async function listRecords(
     params.push(options.dateTo + ' 23:59:59');
   }
 
-  // ハッシュ前方一致
+  // ハッシュ前方一致（16進数のみのためエスケープ不要だが安全のため追加）
   if (options.hashPrefix) {
-    conditions.push('hash_sha256 LIKE ?');
-    params.push(`${options.hashPrefix}%`);
+    conditions.push("hash_sha256 LIKE ? ESCAPE '\\'");
+    params.push(`${escapeLikePattern(options.hashPrefix)}%`);
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
