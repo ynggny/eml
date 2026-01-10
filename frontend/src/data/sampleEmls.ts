@@ -805,9 +805,27 @@ export function createEmlBlob(sample: SampleEml): Blob {
 }
 
 /**
- * EMLファイルをダウンロード
+ * EMLファイルをダウンロード（Worker API経由）
+ *
+ * Worker APIを使って一時トークンを発行し、ブラウザでダウンロード
+ * Worker APIが利用できない場合はフォールバックとしてBlobを使用
  */
-export function downloadSample(sample: SampleEml): void {
+export async function downloadSample(sample: SampleEml): Promise<void> {
+  try {
+    // 動的インポートでAPI関数を取得（循環参照回避）
+    const { exportStringAsFile } = await import('../utils/api');
+    await exportStringAsFile(sample.content, `${sample.id}.eml`, 'message/rfc822');
+  } catch (error) {
+    console.error('Worker API download failed, falling back to Blob:', error);
+    // フォールバック: クライアント側でBlobを使用
+    downloadSampleSync(sample);
+  }
+}
+
+/**
+ * EMLファイルをダウンロード（同期版・フォールバック用）
+ */
+export function downloadSampleSync(sample: SampleEml): void {
   const blob = createEmlBlob(sample);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -822,8 +840,8 @@ export function downloadSample(sample: SampleEml): void {
 /**
  * ランダムサンプルをダウンロード
  */
-export function downloadRandomSample(): SampleEml {
+export async function downloadRandomSample(): Promise<SampleEml> {
   const sample = getRandomSample();
-  downloadSample(sample);
+  await downloadSample(sample);
   return sample;
 }

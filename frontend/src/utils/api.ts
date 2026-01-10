@@ -724,3 +724,225 @@ export async function verifyIntegrity(id: string): Promise<IntegrityCheckResult>
     { method: 'POST' }
   );
 }
+
+// ========================================
+// ファイルエクスポートAPI
+// ========================================
+
+/**
+ * サポートされるエンコーディング情報
+ */
+export interface EncodingInfo {
+  encoding: string;
+  name: string;
+  description: string;
+}
+
+/**
+ * エクスポート準備リクエスト
+ */
+export interface PrepareExportRequest {
+  /** Base64エンコードされたコンテンツ */
+  content: string;
+  /** ファイル名 */
+  filename: string;
+  /** MIMEタイプ */
+  mimeType: string;
+  /** 元のエンコーディング（省略時は自動検出） */
+  sourceEncoding?: string;
+  /** 文字コード変換を行うか（テキストファイルのみ有効） */
+  convertEncoding?: boolean;
+  /** トークンの有効期限（秒、デフォルト300秒） */
+  expiresIn?: number;
+}
+
+/**
+ * エクスポート準備レスポンス
+ */
+export interface PrepareExportResponse {
+  /** ダウンロードURL */
+  url: string;
+  /** トークン */
+  token: string;
+  /** 有効期限（秒） */
+  expiresIn: number;
+  /** 有効期限（ISO形式） */
+  expiresAt: string;
+  /** 検出されたエンコーディング */
+  detectedEncoding?: string;
+}
+
+/**
+ * サポートされるエンコーディング一覧を取得
+ */
+export async function getSupportedEncodings(): Promise<EncodingInfo[]> {
+  const result = await fetchJson<{ encodings: EncodingInfo[] }>(
+    `${API_BASE_URL}/api/export/encodings`
+  );
+  return result.encodings;
+}
+
+/**
+ * 文字コードを自動検出
+ */
+export async function detectEncoding(content: ArrayBuffer): Promise<string> {
+  // ArrayBufferをBase64に変換
+  const bytes = new Uint8Array(content);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  const base64 = btoa(binary);
+
+  const result = await fetchJson<{ encoding: string }>(
+    `${API_BASE_URL}/api/export/detect`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ content: base64 }),
+    }
+  );
+  return result.encoding;
+}
+
+/**
+ * エクスポートを準備（一時トークン発行）
+ *
+ * 1. POST /api/export/prepare でトークンを発行
+ * 2. 返却されたURLにブラウザで遷移してダウンロード
+ */
+export async function prepareExport(
+  request: PrepareExportRequest
+): Promise<PrepareExportResponse> {
+  return fetchJson<PrepareExportResponse>(`${API_BASE_URL}/api/export/prepare`, {
+    method: 'POST',
+    body: JSON.stringify(request),
+  });
+}
+
+/**
+ * ArrayBufferをエクスポート用に準備
+ *
+ * @param content ファイル内容（ArrayBuffer）
+ * @param filename ファイル名
+ * @param mimeType MIMEタイプ
+ * @param options オプション
+ */
+export async function prepareExportFromArrayBuffer(
+  content: ArrayBuffer,
+  filename: string,
+  mimeType: string,
+  options?: {
+    sourceEncoding?: string;
+    convertEncoding?: boolean;
+    expiresIn?: number;
+  }
+): Promise<PrepareExportResponse> {
+  // ArrayBufferをBase64に変換
+  const bytes = new Uint8Array(content);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  const base64 = btoa(binary);
+
+  return prepareExport({
+    content: base64,
+    filename,
+    mimeType,
+    ...options,
+  });
+}
+
+/**
+ * 文字列をエクスポート用に準備
+ *
+ * @param content ファイル内容（文字列）
+ * @param filename ファイル名
+ * @param mimeType MIMEタイプ
+ * @param options オプション
+ */
+export async function prepareExportFromString(
+  content: string,
+  filename: string,
+  mimeType: string,
+  options?: {
+    sourceEncoding?: string;
+    expiresIn?: number;
+  }
+): Promise<PrepareExportResponse> {
+  // TextEncoderでUTF-8バイト列に変換後、Base64化
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(content);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  const base64 = btoa(binary);
+
+  return prepareExport({
+    content: base64,
+    filename,
+    mimeType,
+    convertEncoding: false, // 既にUTF-8
+    ...options,
+  });
+}
+
+/**
+ * ダウンロードを開始
+ *
+ * prepareExportで取得したURLに遷移してダウンロードを開始
+ */
+export function startDownload(url: string): void {
+  // 新しいウィンドウ/タブを開かず、現在のページでダウンロードを開始
+  // これによりブラウザのダウンロードマネージャーが使用される
+  const a = document.createElement('a');
+  a.href = url;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+/**
+ * ファイルをエクスポート（準備〜ダウンロードまで一括実行）
+ *
+ * @param content ファイル内容（ArrayBuffer）
+ * @param filename ファイル名
+ * @param mimeType MIMEタイプ
+ * @param options オプション
+ */
+export async function exportFile(
+  content: ArrayBuffer,
+  filename: string,
+  mimeType: string,
+  options?: {
+    sourceEncoding?: string;
+    convertEncoding?: boolean;
+    expiresIn?: number;
+  }
+): Promise<void> {
+  const result = await prepareExportFromArrayBuffer(content, filename, mimeType, options);
+  startDownload(result.url);
+}
+
+/**
+ * 文字列をファイルとしてエクスポート（準備〜ダウンロードまで一括実行）
+ *
+ * @param content ファイル内容（文字列）
+ * @param filename ファイル名
+ * @param mimeType MIMEタイプ
+ * @param options オプション
+ */
+export async function exportStringAsFile(
+  content: string,
+  filename: string,
+  mimeType: string,
+  options?: {
+    sourceEncoding?: string;
+    expiresIn?: number;
+  }
+): Promise<void> {
+  const result = await prepareExportFromString(content, filename, mimeType, options);
+  startDownload(result.url);
+}

@@ -35,11 +35,17 @@ export function SampleDownloader({ onLoadSample }: SampleDownloaderProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<SampleEml['category'] | 'all'>('all');
   const [lastDownloaded, setLastDownloaded] = useState<SampleEml | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // サンプルをダウンロード
-  const handleDownload = useCallback((sample: SampleEml) => {
-    downloadSample(sample);
-    setLastDownloaded(sample);
+  const handleDownload = useCallback(async (sample: SampleEml) => {
+    setIsDownloading(true);
+    try {
+      await downloadSample(sample);
+      setLastDownloaded(sample);
+    } finally {
+      setIsDownloading(false);
+    }
   }, []);
 
   // サンプルを直接読み込む
@@ -54,9 +60,14 @@ export function SampleDownloader({ onLoadSample }: SampleDownloaderProps) {
   }, [onLoadSample]);
 
   // ランダムダウンロード
-  const handleRandomDownload = useCallback(() => {
-    const sample = downloadRandomSample();
-    setLastDownloaded(sample);
+  const handleRandomDownload = useCallback(async () => {
+    setIsDownloading(true);
+    try {
+      const sample = await downloadRandomSample();
+      setLastDownloaded(sample);
+    } finally {
+      setIsDownloading(false);
+    }
   }, []);
 
   // ランダム読み込み
@@ -134,9 +145,16 @@ export function SampleDownloader({ onLoadSample }: SampleDownloaderProps) {
                 </button>
                 <button
                   onClick={handleRandomDownload}
-                  className="flex items-center justify-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm transition-all"
+                  disabled={isDownloading}
+                  className={`flex items-center justify-center gap-2 px-3 py-2 bg-gray-700 rounded-lg text-sm transition-all ${
+                    isDownloading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-600'
+                  }`}
                 >
-                  <span>📥</span>
+                  {isDownloading ? (
+                    <span className="animate-spin">⏳</span>
+                  ) : (
+                    <span>📥</span>
+                  )}
                   DL
                 </button>
               </div>
@@ -207,10 +225,13 @@ export function SampleDownloader({ onLoadSample }: SampleDownloaderProps) {
                         )}
                         <button
                           onClick={() => handleDownload(sample)}
-                          className="px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-all"
+                          disabled={isDownloading}
+                          className={`px-2 py-1 bg-gray-700 rounded text-xs transition-all ${
+                            isDownloading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-600'
+                          }`}
                           title="EMLファイルをダウンロード"
                         >
-                          📥
+                          {isDownloading ? '⏳' : '📥'}
                         </button>
                       </div>
                     </div>
