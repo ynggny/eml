@@ -154,7 +154,70 @@ Received: from mail.bigcorp.co.jp (mail.bigcorp.co.jp [192.0.2.10])
   },
 
   // ========================================
-  // 4. DMARC失敗メール
+  // 4. 本文改ざんメール（DKIM署名あり・本文ハッシュ不一致）
+  // ========================================
+  {
+    id: 'auth-body-tampered',
+    name: '本文改ざん検知',
+    description: 'DKIM署名時点から本文が書き換えられている。受信後改ざんの疑い',
+    category: 'auth',
+    dangerLevel: 4,
+    features: ['本文ハッシュ検証', '改ざん検知', 'DKIM署名解析'],
+    // 本文ハッシュ（bh）は「元の本文」のハッシュだが、
+    // 実際の本文は攻撃者によって書き換えられている
+    content: `From: billing@trusted-vendor.co.jp
+To: accounts@company.co.jp
+Subject: 【重要】振込先口座変更のお知らせ
+Date: ${randomDate()}
+Message-ID: ${randomMessageId('trusted-vendor.co.jp')}
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+ d=trusted-vendor.co.jp; s=selector1;
+ h=from:to:subject:date:message-id:content-type;
+ bh=K7gNU3sdo+OL0wNhqoVWhr3g6s1xYv72ol/pe/Unols=;
+ b=dGhpc19pc19hX2Zha2Vfc2lnbmF0dXJlX2Zvcl9kZW1vbnN0cmF0aW9u
+  cHVycG9zZXNfb25seV9ub3RfYV9yZWFsX2RraW1fc2lnbmF0dXJl==
+Authentication-Results: mx.company.co.jp;
+ spf=pass smtp.mailfrom=trusted-vendor.co.jp;
+ dkim=fail (body hash did not verify) header.d=trusted-vendor.co.jp;
+ dmarc=fail header.from=trusted-vendor.co.jp
+Received: from mail.trusted-vendor.co.jp (mail.trusted-vendor.co.jp [192.0.2.50])
+ by mx.company.co.jp (Postfix) with ESMTPS id TAMPER01;
+ ${randomDate()}
+
+【重要なお知らせ】
+
+平素より大変お世話になっております。
+
+弊社の振込先口座が下記の通り変更となりましたので、
+ご連絡申し上げます。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+【新しい振込先口座】
+銀行名：ニセモノ銀行
+支店名：サギ支店（店番：666）
+口座種別：普通
+口座番号：9999999
+口座名義：カ）アクマショウカイ
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+※ この口座情報は元のメールから改ざんされています
+※ 本来の口座情報とは異なります
+※ DKIM署名の本文ハッシュ（bh）と一致しません
+
+旧口座への振込は受付できなくなりますので、
+次回お振込分より新口座をご利用ください。
+
+ご不明な点がございましたら、お問い合わせください。
+
+株式会社トラステッドベンダー
+経理部
+`,
+  },
+
+  // ========================================
+  // 5. DMARC失敗メール
   // ========================================
   {
     id: 'auth-dmarc-fail',
