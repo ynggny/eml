@@ -357,8 +357,14 @@ export async function verifyDKIMSignature(
     const dnsRecords = await getDNSRecord(dkimDomain, 'TXT');
 
     if (!dnsRecords || dnsRecords.length === 0) {
-      result.status = 'temperror';
       result.details.issues.push(`公開鍵が見つかりません (${dkimDomain})`);
+      // 公開鍵がなくても本文ハッシュ検証結果は返す
+      // 本文ハッシュが不一致なら改ざんの可能性があるためfail
+      if (!result.bodyHashValid) {
+        result.status = 'fail';
+      } else {
+        result.status = 'temperror';
+      }
       return result;
     }
 
@@ -367,8 +373,13 @@ export async function verifyDKIMSignature(
     const publicKeyData = parseDKIMPublicKey(keyRecord);
 
     if (!publicKeyData || !publicKeyData.p) {
-      result.status = 'permerror';
       result.details.issues.push('公開鍵レコードの形式が不正です');
+      // 本文ハッシュが不一致なら改ざんの可能性があるためfail
+      if (!result.bodyHashValid) {
+        result.status = 'fail';
+      } else {
+        result.status = 'permerror';
+      }
       return result;
     }
 
@@ -377,16 +388,26 @@ export async function verifyDKIMSignature(
 
     // 鍵が失効（p=）しているかチェック
     if (publicKeyData.p === '') {
-      result.status = 'permerror';
       result.details.issues.push('公開鍵が失効しています');
+      // 本文ハッシュが不一致なら改ざんの可能性があるためfail
+      if (!result.bodyHashValid) {
+        result.status = 'fail';
+      } else {
+        result.status = 'permerror';
+      }
       return result;
     }
 
     // 3. 署名を検証
     const cryptoKey = await importRSAPublicKey(publicKeyData.p);
     if (!cryptoKey) {
-      result.status = 'permerror';
       result.details.issues.push('公開鍵のインポートに失敗しました');
+      // 本文ハッシュが不一致なら改ざんの可能性があるためfail
+      if (!result.bodyHashValid) {
+        result.status = 'fail';
+      } else {
+        result.status = 'permerror';
+      }
       return result;
     }
 
