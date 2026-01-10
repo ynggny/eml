@@ -21,6 +21,20 @@
 | コミットログ | Why（なぜこの変更が必要か） |
 | コードコメント | Why not（なぜ別の方法を採用しなかったか） |
 
+### テスト方針
+- **外部API呼び出し以外はモックを使用しない**
+- D1/SQLiteのテストには`better-sqlite3`を使用し、実際のクエリを実行する
+- テストはWhat（何をテストしているか）を記述し、実際の動作を検証する
+
+```typescript
+// D1のテスト例: better-sqlite3でインメモリDBを作成
+import Database from 'better-sqlite3';
+
+const db = new Database(':memory:');
+db.exec('CREATE TABLE ...'); // 実際のスキーマを作成
+// D1互換アダプタを経由して実際のクエリを実行
+```
+
 ### GitHub CLI（gh）コマンドの使用
 gitのremoteがプロキシ経由の場合、ghコマンドがGitHubホストを認識できないことがあります。
 PRの作成などghコマンド使用時は、必ず `--repo` フラグと `--head` フラグでリポジトリとブランチを明示的に指定してください。
