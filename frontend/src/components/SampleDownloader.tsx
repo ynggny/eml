@@ -105,7 +105,7 @@ export function SampleDownloader({ onLoadSample }: SampleDownloaderProps) {
           />
 
           {/* パネル */}
-          <div className="absolute right-0 mt-2 w-[480px] max-h-[70vh] overflow-hidden bg-gray-800 border border-gray-700 rounded-xl shadow-2xl z-50">
+          <div className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-[calc(100vw-2rem)] sm:w-[480px] max-h-[70vh] overflow-hidden bg-gray-800 border border-gray-700 rounded-xl shadow-2xl z-50">
             {/* ヘッダー */}
             <div className="sticky top-0 bg-gray-800/95 backdrop-blur border-b border-gray-700 p-4">
               <div className="flex items-center justify-between mb-3">
