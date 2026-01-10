@@ -4,6 +4,7 @@ import { EmailViewer } from '../components/EmailViewer';
 import { AuthResults } from '../components/AuthResults';
 import { HashInfo } from '../components/HashInfo';
 import { DomainVerification } from '../components/DomainVerification';
+import { DKIMVerification } from '../components/DKIMVerification';
 import { ThreadView } from '../components/ThreadView';
 import { ReceivedPath } from '../components/ReceivedPath';
 import { HeaderInsights } from '../components/HeaderInsights';
@@ -208,6 +209,13 @@ export function HomePage() {
             authResults={authResults}
             fromDomain={fromDomain}
             hash={selectedEmail.hash}
+          />
+
+          {/* DKIM署名検証 */}
+          <DKIMVerification
+            headers={selectedEmail.email.headers}
+            rawBody={selectedEmail.email.rawBody}
+            rawHeaders={selectedEmail.email.rawHeaders}
           />
 
           {/* DNS検証 & BIMI */}
